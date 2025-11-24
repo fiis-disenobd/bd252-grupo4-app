@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const modules = [
   { id: "security", label: "Módulo de Seguridad" },
-  { id: "scheduling", label: "Módulo de Programación" },
+  { id: "programacion", label: "Módulo de Programación" },
   { id: "operations", label: "Módulo de Operaciones" },
   { id: "strategies", label: "Módulo de Estrategias" },
   { id: "reports", label: "Módulo de Metas y Reportes" },
