@@ -6,7 +6,6 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 
 
-
 interface DetalleTicket {
   codigo_ticket: number
   fecha_programada: string
@@ -17,9 +16,9 @@ interface DetalleTicket {
   monto_deuda: number
   diasmora: number
   recurso_asignado: string | null
-  // Nuevos campos JSON de la vista
   lista_contactos: Contacto[]
   lista_productos: Producto[]
+  nombre_equipo: string | null
 }
 
 interface Contacto {
@@ -34,14 +33,22 @@ interface Producto {
   valor: number
 }
 
+// INTERFAZ CORREGIDA (Coincide con la Base de Datos)
+interface HistorialItem {
+  fecha_cambio: string
+  tipo_cambio: string
+  codigo_recurso_anterior: string | null
+  codigo_recurso_nuevo: string | null
+}
+
 export default function DetalleTicketPage() {
   const params = useParams()
   const ticketId = params?.id as string
 
   const [ticket, setTicket] = useState<DetalleTicket | null>(null)
+  const [historial, setHistorial] = useState<HistorialItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -50,38 +57,49 @@ export default function DetalleTicketPage() {
 
   useEffect(() => {
     if (ticketId && supabase) {
-      cargarDetalleOptimizado()
+      cargarDetalle()
     } else {
         setLoading(false)
     }
   }, [ticketId])
 
-  async function cargarDetalleOptimizado() {
+  async function cargarDetalle() {
     try {
       setLoading(true)
       const client = supabase as any
 
-      // ¡MAGIA! Ahora traemos TODO (Ticket + Contactos + Productos) en una sola consulta
+      // 1. Consultar Detalle
       const { data, error } = await client
         .schema('programacion')
-        .from('vista_detalle_ticket_completo') // <--- Usamos la nueva vista
+        .from('vista_detalle_ticket_completo')
         .select('*')
         .eq('codigo_ticket', parseInt(ticketId))
         .single()
 
       if (error) throw error
-      
       setTicket(data)
+
+      // 2. Consultar Historial (CORREGIDO: Nombres de columnas reales)
+      const { data: dataHistorial, error: errHist } = await client
+        .schema('programacion')
+        .from('historial_asignacion')
+        .select('fecha_cambio, tipo_cambio, codigo_recurso_anterior, codigo_recurso_nuevo')
+        .eq('codigo_ticket', parseInt(ticketId))
+        .order('fecha_cambio', { ascending: false })
+
+      if (!errHist && dataHistorial) {
+          setHistorial(dataHistorial)
+      }
 
     } catch (err: any) {
       console.error(err)
-      setError("Error: " + err.message)
+      setError("Error al cargar: " + err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-slate-600">Cargando información completa...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-slate-600">Cargando información...</div>
   
   if (!ticket) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-slate-600 gap-4">
@@ -119,29 +137,29 @@ export default function DetalleTicketPage() {
         </div>
 
         {/* CUERPO PRINCIPAL */}
-        <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-12">
           
-          {/* COLUMNA 1: CLIENTE Y CONTACTOS */}
+          {/* DATOS CLIENTE */}
           <div className="lg:col-span-1 space-y-8">
             <div>
-                <h2 className="text-lg font-bold text-slate-900 border-b-2 border-gray-100 pb-2 mb-4">Cliente</h2>
-                <p className="text-xl font-medium text-slate-900">{ticket.cliente}</p>
+                <h2 className="text-xl font-bold text-slate-900 border-b-2 border-gray-100 pb-3 mb-6">Cliente</h2>
+                <p className="text-2xl font-medium text-slate-900">{ticket.cliente}</p>
                 <p className="text-sm text-gray-500 mt-1">ID: {ticket.codigo_cliente}</p>
                 <div className="mt-3">
-                    <span className={`inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider border
+                    <span className={`inline-block px-4 py-2 rounded-lg text-base font-medium border
                         ${ticket.cartera === 'Tardia' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-slate-700 border-gray-200'}`}>
-                        Cartera {ticket.cartera}
+                        {ticket.cartera}
                     </span>
                 </div>
             </div>
 
             <div>
-                <h2 className="text-lg font-bold text-slate-900 border-b-2 border-gray-100 pb-2 mb-4">Medios de Contacto</h2>
+                <h2 className="text-lg font-bold text-slate-900 border-b-2 border-gray-100 pb-2 mb-4">Contactos</h2>
                 {ticket.lista_contactos && ticket.lista_contactos.length > 0 ? (
                     <ul className="space-y-3">
                         {ticket.lista_contactos.map((c, idx) => (
                             <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                <span className="text-lg">{c.tipo_contacto === 'Celular' ? '📱' : c.tipo_contacto === 'Email' ? '📧' : '📞'}</span>
+                                <span className="text-lg">{c.tipo_contacto === 'Celular' ? '📱' : '📞'}</span>
                                 <div>
                                     <p className="text-sm font-bold text-slate-700">{c.tipo_contacto}</p>
                                     <p className="text-sm text-slate-600 break-all">{c.valor_contacto}</p>
@@ -149,17 +167,14 @@ export default function DetalleTicketPage() {
                             </li>
                         ))}
                     </ul>
-                ) : (
-                    <p className="text-sm text-gray-400 italic">No hay contactos registrados.</p>
-                )}
+                ) : <p className="text-sm text-gray-400 italic">Sin contactos registrados.</p>}
             </div>
           </div>
 
-          {/* COLUMNA 2: PRODUCTOS Y DEUDA */}
+          {/* DATOS FINANCIEROS Y ASIGNACIÓN */}
           <div className="lg:col-span-2 space-y-8">
-             
-             {/* Resumen Financiero */}
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
                     <label className="text-xs font-bold text-indigo-500 uppercase block mb-1">Deuda Total</label>
                     <p className="text-4xl font-bold text-indigo-900 tracking-tight">
@@ -168,54 +183,49 @@ export default function DetalleTicketPage() {
                 </div>
                 <div className="bg-red-50 p-6 rounded-xl border border-red-100">
                     <label className="text-xs font-bold text-red-500 uppercase block mb-1">Días de Atraso</label>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-extrabold text-red-700">{ticket.diasmora}</span>
-                        <span className="text-sm font-bold text-red-800">días</span>
+                    <div className="flex items-baseline gap-3">
+                        <span className="text-5xl font-extrabold text-red-700">{ticket.diasmora}</span>
+                        <span className="text-lg font-bold text-red-800">días</span>
                     </div>
                 </div>
-             </div>
+            </div>
 
-             {/* Lista de Productos */}
-             <div>
-                <h2 className="text-lg font-bold text-slate-900 border-b-2 border-gray-200 pb-2 mb-4">Productos Contratados</h2>
+            {/* Productos */}
+            <div>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Productos</h3>
                 {ticket.lista_productos && ticket.lista_productos.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {ticket.lista_productos.map((prod, idx) => (
-                            <div key={idx} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-0.5 text-xs rounded font-bold uppercase 
-                                        ${prod.tipo_producto.includes('Tarjeta') ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                        {prod.tipo_producto}
-                                    </span>
-                                    <span className="text-xs text-gray-400">{prod.moneda}</span>
+                            <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <div className="flex justify-between">
+                                    <span className="text-xs font-bold uppercase bg-white px-2 py-1 rounded border">{prod.tipo_producto}</span>
+                                    <span className="text-xs text-gray-500">{prod.moneda}</span>
                                 </div>
-                                <p className="font-bold text-slate-800">{prod.descripcion}</p>
-                                <p className="text-sm text-gray-500 mt-1">Línea/Monto: <span className="text-slate-900 font-medium">{prod.valor.toLocaleString()}</span></p>
+                                <p className="font-bold text-slate-800 mt-2">{prod.descripcion}</p>
+                                <p className="text-sm text-slate-600">Monto: {prod.valor.toLocaleString()}</p>
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <p className="text-sm text-gray-400 italic">No se encontraron productos asociados.</p>
-                )}
-             </div>
+                ) : <p className="text-sm text-gray-400 italic">Sin productos.</p>}
+            </div>
 
-             {/* Asignación Actual */}
-             <div className="mt-8 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Estado de Asignación</h3>
+            {/* Asignación Actual */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3">Recurso Asignado</label>
                 {ticket.recurso_asignado ? (
-                   <div className="flex items-center gap-4 bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
-                      <div className="h-12 w-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                   <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
+                      <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
                         {ticket.recurso_asignado.charAt(0)}
                       </div>
                       <div>
-                        <p className="text-base font-bold text-indigo-900">{ticket.recurso_asignado}</p>
-                        <p className="text-sm text-indigo-500 font-medium">Analista Responsable</p>
+                        <p className="text-sm font-bold text-indigo-900">{ticket.recurso_asignado}</p>
+                        <p className="text-xs text-indigo-500 font-medium">Asignado actualmente</p>
                       </div>
                    </div>
                 ) : (
-                    <div className="flex items-center gap-2 bg-yellow-50 p-4 rounded-lg border border-yellow-100 text-yellow-800">
+                    <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800">
                         <span>⚠️</span>
-                        <p className="text-sm font-medium">Este cliente aún no tiene un analista asignado para la gestión.</p>
+                        <p className="text-sm font-medium">Pendiente de asignación</p>
                     </div>
                 )}
             </div>
@@ -223,14 +233,63 @@ export default function DetalleTicketPage() {
           </div>
         </div>
 
+        {/* SECCIÓN DE HISTORIAL (TRAZABILIDAD) - SIEMPRE VISIBLE */}
+        <div className="bg-gray-50 border-t border-gray-200 p-8">
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">📜 Historial de Asignaciones (Trazabilidad)</h3>
+            
+            <div className="space-y-4 ml-2 border-l-2 border-gray-300 pl-6 relative">
+                {historial.length === 0 ? (
+                    <div className="text-sm text-gray-400 italic py-2">
+                        No hay movimientos registrados en este ticket todavía.
+                    </div>
+                ) : (
+                    historial.map((h, idx) => (
+                        <div key={idx} className="relative mb-6">
+                            {/* Punto en la línea de tiempo */}
+                            <span className={`absolute -left-[33px] top-1 h-4 w-4 rounded-full border-2 border-white shadow-sm
+                                ${h.tipo_cambio === 'ASIGNACION INICIAL' ? 'bg-green-500' : 
+                                  h.tipo_cambio === 'LIBERACION' ? 'bg-red-500' : 'bg-blue-500'}`}>
+                            </span>
+                            
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <div>
+                                    <p className="text-xs text-gray-400 font-mono mb-1">
+                                        {new Date(h.fecha_cambio).toLocaleString()}
+                                    </p>
+                                    <div className="text-sm font-bold text-slate-800">
+                                        {h.tipo_cambio === 'ASIGNACION INICIAL' && (
+                                            <span>Asignado inicialmente a <span className="text-indigo-600">{h.codigo_recurso_nuevo}</span></span>
+                                        )}
+                                        {h.tipo_cambio === 'REASIGNACION' && (
+                                            <span>Transferido: De <span className="text-red-500 line-through">{h.codigo_recurso_anterior || 'Nadie'}</span> ➝ A <span className="text-green-600">{h.codigo_recurso_nuevo}</span></span>
+                                        )}
+                                        {h.tipo_cambio === 'LIBERACION' && (
+                                            <span>Asignación liberada de {h.codigo_recurso_anterior}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded mt-2 sm:mt-0 uppercase tracking-wide">
+                                    {h.tipo_cambio}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+
         {/* PIE DE PÁGINA: ACCIONES */}
-        <div className="bg-gray-50 px-8 py-6 border-t border-gray-200 flex justify-end items-center gap-4">
+        <div className="bg-white px-8 py-6 border-t border-gray-200 flex justify-end items-center gap-4">
             {ticket.estado_ticket !== 'Finalizado' && (
                 <Link
                     href={`/modules/programacion/${ticket.codigo_ticket}/asignar`}
-                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
                 >
-                    {ticket.recurso_asignado ? '✏️ Re-asignar Analista / Horario' : '🔍 Buscar Disponibilidad y Asignar'}
+                    {ticket.recurso_asignado ? (
+                        <>✏️ Cambiar Asignación / Horario</>
+                    ) : (
+                        <>🔍 Buscar Disponibilidad y Asignar</>
+                    )}
                 </Link>
             )}
         </div>
