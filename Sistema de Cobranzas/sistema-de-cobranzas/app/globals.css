@@ -66,3 +66,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Module-specific override: force a light appearance inside any
+   container with class `not-dark` (used for the strategies module).
+   These rules override Tailwind's `dark:` variants locally so the
+   strategies pages stay in a clear/light theme even when the global
+   site is in dark mode. */
+@layer utilities {
+  .not-dark :where(.dark\:bg-slate-800, .dark\:bg-slate-900, .dark\:bg-slate-700, .dark\:even\:bg-slate-700, .dark\:odd\:bg-slate-800, .bg-slate-900, .bg-slate-800, .bg-slate-700) {
+    background-color: white !important;
+  }
+
+  .not-dark :where(.dark\:border-slate-700, .border-slate-200, .border) {
+    border-color: #e6e9ee !important;
+  }
+
+  .not-dark :where(.dark\:text-slate-200, .dark\:text-slate-400, .text-slate-600, .text-slate-500, .text-slate-700) {
+    color: rgb(15 23 42) !important;
+  }
+
+  .not-dark :where(.text-muted-foreground, .text-slate-600, .text-slate-500, .text-slate-400) {
+    color: rgb(30 41 59) !important;
+  }
+
+  .not-dark .odd\:bg-white { background-color: white !important; }
+  .not-dark .even\:bg-slate-50 { background-color: #f8fafc !important; }
+}

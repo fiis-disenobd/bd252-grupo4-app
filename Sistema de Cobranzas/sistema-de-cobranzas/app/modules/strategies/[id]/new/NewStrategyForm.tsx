@@ -89,7 +89,7 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
           onChange={(e) => setCodigo(e.target.value)}
           maxLength={4}
           required
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-slate-300 bg-slate-50 text-slate-900 px-3 py-2"
         />
       </div>
 
@@ -100,7 +100,7 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
           onChange={(e) => setNombre(e.target.value)}
           required
           maxLength={50}
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-slate-300 bg-slate-50 text-slate-900 px-3 py-2"
         />
       </div>
 
@@ -110,7 +110,7 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           maxLength={500}
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-slate-300 bg-slate-50 text-slate-900 px-3 py-2"
         />
       </div>
 
@@ -122,7 +122,7 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
             value={fechaInicio}
             onChange={(e) => setFechaInicio(e.target.value)}
             required
-            className="mt-1 block w-full rounded border px-3 py-2"
+            className="mt-1 block w-full rounded border border-slate-300 bg-slate-50 text-slate-900 px-3 py-2"
           />
         </div>
         <div>
@@ -132,7 +132,7 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
             value={fechaFin}
             onChange={(e) => setFechaFin(e.target.value)}
             required
-            className="mt-1 block w-full rounded border px-3 py-2"
+            className="mt-1 block w-full rounded border border-slate-300 bg-slate-50 text-slate-900 px-3 py-2"
           />
         </div>
       </div>
@@ -141,11 +141,11 @@ export default function NewStrategyForm({ carteraId }: { carteraId: any }) {
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 rounded bg-slate-700 text-white"
+          className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-300"
         >
           {loading ? "Creando..." : "Crear estrategia"}
         </button>
-        <button type="button" onClick={() => router.back()} className="px-3 py-2 rounded border">
+        <button type="button" onClick={() => router.back()} className="px-3 py-2 rounded border border-emerald-300 text-emerald-700">
           Cancelar
         </button>
       </div>

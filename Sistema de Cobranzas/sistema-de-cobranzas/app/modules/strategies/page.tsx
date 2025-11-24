@@ -87,7 +87,7 @@ $$ LANGUAGE sql STABLE;`}</pre>
               return (
                 <div
                   key={idx}
-                  className="block w-full p-4 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-500"
+                  className="block w-full p-4 bg-slate-100 dark:bg-slate-900 border border-emerald-200 dark:border-slate-700 rounded-md text-slate-700"
                 >
                   <div className="font-medium">{label}</div>
                   <div className="text-sm text-slate-400 mt-2">Registro sin identificador válido</div>
@@ -103,11 +103,11 @@ $$ LANGUAGE sql STABLE;`}</pre>
               <Link
                 key={id}
                 href={`/modules/strategies/${encodeURIComponent(id)}`}
-                className="block w-full p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-sm hover:shadow-md hover:scale-[1.01] transform transition"
+                className="block w-full p-4 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 rounded-md shadow-sm hover:shadow-md hover:scale-[1.01] transform transition focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <div className="flex items-center justify-between">
                   <div className="font-medium">{label}</div>
-                  <div className="text-xs text-slate-500">id: <span className="font-mono">{id}</span></div>
+                  <div className="text-xs text-slate-700">id: <span className="font-mono">{id}</span></div>
                 </div>
                 {r.descripcion ? (
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-2">{r.descripcion}</div>

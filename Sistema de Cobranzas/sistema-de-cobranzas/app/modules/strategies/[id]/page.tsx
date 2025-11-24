@@ -26,7 +26,7 @@ export default async function StrategyDetailPage({ params }: { params: any }) {
 
   const id = resolvedParams?.id ?? (resolvedParams?.params && resolvedParams.params.id) ?? null;
 
-  if (!id) {
+      if (!id) {
     return (
       <div className="p-4">
         <h1 className="text-2xl font-bold">Estrategias</h1>
@@ -101,15 +101,15 @@ export default async function StrategyDetailPage({ params }: { params: any }) {
           <h1 className="text-2xl font-bold">Estrategia activa — {carteraName}</h1>
           <p className="text-sm text-slate-600 mt-1">Cartera: {carteraName} (id {id})</p>
         </div>
-        <div className="flex gap-2">
+          <div className="flex gap-2">
           <Link href={`/modules/strategies/${id}/history`} className="px-3 py-2 rounded border text-sm">Historial</Link>
-          <Link href={`/modules/strategies/${id}/new`} className="px-3 py-2 rounded bg-slate-700 text-white text-sm">Nueva Estrategia</Link>
+          <Link href={`/modules/strategies/${id}/new`} className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">Nueva Estrategia</Link>
         </div>
       </div>
 
       <div className="mt-6">
         {active ? (
-          <div className="p-4 border rounded bg-white dark:bg-slate-800 space-y-3">
+          <div className="p-4 border rounded bg-white dark:bg-slate-800 space-y-3 border-emerald-100">
             <div>
               <div className="text-sm text-muted-foreground">Código</div>
               <div className="font-medium">{active.codigo ?? "-"}</div>

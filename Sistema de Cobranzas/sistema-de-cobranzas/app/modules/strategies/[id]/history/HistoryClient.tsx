@@ -73,6 +73,7 @@ export default function HistoryClient() {
               <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Fecha Inicio</th>
               <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Fecha Fin</th>
               <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Estado</th>
+              <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Opciones</th>
             </tr>
           </thead>
           <tbody>
@@ -84,6 +85,18 @@ export default function HistoryClient() {
                 <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleDateString() : "-"}</td>
                 <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{s.fecha_fin ? new Date(s.fecha_fin).toLocaleDateString() : "-"}</td>
                 <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{(s.id_estado_estrategia ?? s.estado) ?? "-"}</td>
+                <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">
+                  {((s.id_estado_estrategia ?? s.estado) === "P") ? (
+                    <a
+                      href={`/modules/strategies/${new URL(window.location.href).pathname.split("/").filter(Boolean).slice(-3)[1]}/complete/${encodeURIComponent(String(s.id_estrategia ?? s.id ?? ""))}`}
+                      className="inline-block px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                    >
+                      Completar
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500">-</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

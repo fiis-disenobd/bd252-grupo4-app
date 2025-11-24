@@ -69,8 +69,8 @@ export default async function HistoryPage({ params }: { params: any }) {
           <p className="text-sm text-slate-600 mt-1">Cartera id: <span className="font-mono">{id}</span></p>
         </div>
         <div className="flex gap-2">
-          <Link href={`/modules/strategies/${id}/new`} className="px-3 py-2 rounded bg-slate-700 text-white text-sm">Nueva Estrategia</Link>
-          <Link href="/modules/strategies" className="px-3 py-2 rounded border text-sm">Volver</Link>
+          <Link href={`/modules/strategies/${id}/new`} className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">Nueva Estrategia</Link>
+          <Link href="/modules/strategies" className="px-3 py-2 rounded border border-emerald-200 text-emerald-700 text-sm">Volver</Link>
         </div>
       </div>
 
@@ -88,6 +88,7 @@ export default async function HistoryPage({ params }: { params: any }) {
                     <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Fecha Inicio</th>
                     <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Fecha Fin</th>
                     <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Estado</th>
+                    <th className="px-4 py-2 border text-slate-700 dark:text-slate-300">Opciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -99,6 +100,18 @@ export default async function HistoryPage({ params }: { params: any }) {
                       <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{formatDate(s.fecha_inicio)}</td>
                       <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{formatDate(s.fecha_fin)}</td>
                       <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">{(s.id_estado_estrategia ?? s.estado) ?? "-"}</td>
+                      <td className="px-4 py-2 border align-top text-slate-900 dark:text-slate-200">
+                        {((s.id_estado_estrategia ?? s.estado) === "P") ? (
+                          <a
+                            href={`/modules/strategies/${id}/complete/${encodeURIComponent(String(s.id_estrategia ?? s.id ?? ""))}`}
+                            className="inline-block px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                          >
+                            Completar
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-500">-</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
