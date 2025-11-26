@@ -60,33 +60,7 @@ export default async function CompleteStrategyPage({ params }: { params: any }) 
 
       <div className="mt-6">
         {/* Diagnostic block to help debugging when the page appears empty */}
-        <div className="p-3 mb-4 rounded bg-slate-50 border text-sm">
-          <div><strong>Debug params:</strong></div>
-          <pre className="text-xs mt-1 overflow-auto">{JSON.stringify({ carteraId, strategyId }, null, 2)}</pre>
-          <div className="mt-2"><strong>Fetch error:</strong></div>
-          <pre className="text-xs mt-1 overflow-auto">{JSON.stringify(fetchResult?.error ?? fetchError ?? null, null, 2)}</pre>
-          <div className="mt-2"><strong>Fetch data (first item):</strong></div>
-          <pre className="text-xs mt-1 overflow-auto">{JSON.stringify(fetchResult?.data?.[0] ?? null, null, 2)}</pre>
-        </div>
-        {strategy ? (
-          <div className="p-4 border rounded bg-white">
-            <div className="text-sm text-muted-foreground">Código</div>
-            <div className="font-medium">{strategy.codigo ?? "-"}</div>
-
-            <div className="mt-3">
-              <div className="text-sm text-muted-foreground">Nombre</div>
-              <div className="font-medium">{strategy.nombre ?? "-"}</div>
-            </div>
-
-            <div className="mt-3">
-              <div className="text-sm text-muted-foreground">Descripción</div>
-              <div>{strategy.descripcion ?? "-"}</div>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 border rounded bg-yellow-50">No se encontró la estrategia solicitada. Aun así puedes completar detalles manualmente abajo.</div>
-        )}
-
+        
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link href={`/modules/strategies/${carteraId}/complete/${strategyId}/templates`} className="block w-full p-6 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-center text-lg font-medium">Plantillas</Link>
 

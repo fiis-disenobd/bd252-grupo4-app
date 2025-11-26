@@ -73,6 +73,53 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.lista_turnos() TO anon, authenticated;
 
+-- Function 4: guardar_config_canales
+-- Upserts detalle_estrategia rows in bulk
+-- Expects a JSONB array of objects with keys: id_estrategia, id_canal, id_turno, valor_frecuencia, id_tipo_frecuencia
+CREATE OR REPLACE FUNCTION public.guardar_config_canales(rows_data jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+DECLARE
+  inserted_count int := 0;
+  row_item jsonb;
+BEGIN
+  -- Iterate over each row in the input array
+  FOR row_item IN SELECT * FROM jsonb_array_elements(rows_data)
+  LOOP
+    INSERT INTO modulo_estrategias.detalle_estrategia (
+      id_estrategia,
+      id_canal,
+      id_turno,
+      valor_frecuencia,
+      id_tipo_frecuencia
+    )
+    VALUES (
+      (row_item->>'id_estrategia')::int,
+      (row_item->>'id_canal')::int,
+      (row_item->>'id_turno')::int,
+      (row_item->>'valor_frecuencia')::int,
+      (row_item->>'id_tipo_frecuencia')::int
+    )
+    ON CONFLICT (id_estrategia, id_canal, id_turno)
+    DO UPDATE SET
+      valor_frecuencia = EXCLUDED.valor_frecuencia,
+      id_tipo_frecuencia = EXCLUDED.id_tipo_frecuencia;
+    
+    inserted_count := inserted_count + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object('count', inserted_count, 'success', true);
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.guardar_config_canales(jsonb) TO anon, authenticated;
+
 -- ==============================================================================
 -- End of RPC Functions
 -- ==============================================================================
@@ -80,4 +127,5 @@ GRANT EXECUTE ON FUNCTION public.lista_turnos() TO anon, authenticated;
 --   await supabase.rpc('lista_canales')
 --   await supabase.rpc('lista_frecuencias')
 --   await supabase.rpc('lista_turnos')
+--   await supabase.rpc('guardar_config_canales', { rows_data: [...] })
 -- ==============================================================================

@@ -31,10 +31,8 @@ $$ LANGUAGE sql STABLE;`}</pre>
 
   return (
     <div className="p-4">
-      {rows.length > 0 && (
-        <div className="mb-4 text-xs text-slate-500">Debug: se encontraron {rows.length} carteras.</div>
-      )}
-      <h2 className="text-lg font-semibold mb-4">Carteras disponibles</h2>
+      
+      <h1 className="text-lg font-semibold mb-4">Carteras disponibles</h1>
 
       {rows.length === 0 ? (
         <div className="text-sm text-muted-foreground">No se encontraron carteras.</div>

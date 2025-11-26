@@ -14,7 +14,7 @@ export default function ClientCarteraId() {
 
   return (
     <div className="mt-2 text-sm text-slate-700">
-      <div>Detección cliente (fallback): <span className="font-mono">{id ?? "(no encontrado)"}</span></div>
+      
     </div>
   );
 }

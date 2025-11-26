@@ -1,7 +1,7 @@
 import React from "react";
 
 export const metadata = {
-  title: "Estrategias - Modo Claro",
+  title: "Sistema de Cobranzas - Estrategias",
 };
 
 export default function StrategiesLayout({ children }: { children: React.ReactNode }) {

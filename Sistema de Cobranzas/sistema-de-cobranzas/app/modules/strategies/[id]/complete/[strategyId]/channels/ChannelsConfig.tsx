@@ -98,11 +98,10 @@ export default function ChannelsConfig({
     setSaving(true);
     try {
       const supabase = createBrowserClient();
-      const { error: insertErr } = await supabase
-        .from("modulo_estrategias.detalle_estrategia")
-        .upsert(rows, { onConflict: "id_estrategia,id_canal,id_turno" });
-      if (insertErr) throw new Error(insertErr.message);
-      setOkMessage(`Se guardaron ${rows.length} registros.`);
+      const { data, error: rpcErr } = await supabase.rpc("guardar_config_canales", { rows_data: rows });
+      if (rpcErr) throw new Error(rpcErr.message);
+      if (data && !(data as any).success) throw new Error((data as any).error ?? "Error desconocido");
+      setOkMessage(`Se guardaron ${rows.length} registros correctamente.`);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -141,13 +140,13 @@ export default function ChannelsConfig({
               <input
                 type="number"
                 min={1}
-                className="w-20 rounded border px-2 py-1 text-sm"
+                className="w-20 rounded border px-2 py-1 text-sm bg-white"
                 value={Number.isFinite(frecuenciaValor[c.id_canal]) ? frecuenciaValor[c.id_canal] : ""}
                 onChange={e => changeValor(c.id_canal, e.target.value)}
                 placeholder="valor"
               />
               <select
-                className="rounded border px-2 py-1 text-sm"
+                className="rounded border px-2 py-1 text-sm bg-white"
                 value={frecuenciaTipo[c.id_canal] ?? ""}
                 onChange={e => changeTipo(c.id_canal, e.target.value)}
               >

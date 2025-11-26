@@ -23,10 +23,7 @@ export default async function HistoryPage({ params }: { params: any }) {
     return (
       <div className="p-4">
         <h1 className="text-2xl font-bold">Historial de estrategias</h1>
-        <div className="text-sm text-destructive mt-2">Falta el identificador de la cartera en la URL (render server-side).</div>
-        <div className="mt-4">
-          <Link href="/modules/strategies" className="text-sm underline">Volver a la lista de carteras</Link>
-        </div>
+        
         <div className="mt-6">
           {/* Client-side fallback */}
           {/* @ts-expect-error Async import of client component */}

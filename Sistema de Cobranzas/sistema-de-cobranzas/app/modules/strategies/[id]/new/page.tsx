@@ -10,10 +10,9 @@ export default function NewStrategyPage({ params }: { params: any }) {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold">Crear nueva estrategia</h1>
-      <p className="text-sm text-slate-600 mt-1">Cartera id: <span className="font-mono">{id ?? ""}</span></p>
       <div className="mt-2 text-xs text-slate-500">
-        <div>Debug params (server render):</div>
-        <pre className="bg-slate-100 dark:bg-slate-900 p-2 rounded mt-1">{JSON.stringify(params)}</pre>
+        
+        
       </div>
       {/* Client-side fallback to show id when server params are proxied */}
       <ClientCarteraId />
