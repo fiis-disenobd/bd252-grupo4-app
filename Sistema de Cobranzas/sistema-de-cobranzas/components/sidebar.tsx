@@ -34,11 +34,10 @@ export function Sidebar() {
               <li key={m.id}>
                 <Link
                   href={href}
-                  className={`block w-full text-left px-3 py-2 rounded transition-colors text-sm font-medium ${
-                    active
-                      ? "bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
+                  className={`block w-full text-left px-3 py-2 rounded transition-colors text-sm font-medium ${active
+                    ? "bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
                 >
                   {m.label}
                 </Link>
