@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import TemplatesConfig from "./TemplatesConfig";
+import TemplatesColumns from "./TemplatesColumns";
 
 export default async function TemplatesPage({ params }: { params: any }) {
   let resolved = params;
@@ -16,27 +16,25 @@ export default async function TemplatesPage({ params }: { params: any }) {
   let seleccionadas: number[] = [];
   let fetchError: string | null = null;
   try {
-    // Obtener todas las plantillas de la cartera (filtradas por id_cartera) y su canal.
-    const { data: pData, error: pErr } = await supabase
-      .from("modulo_estrategias.plantilla")
-      .select("id_plantilla,nombre,descripcion,contenido,id_cartera,id_canal")
-      .eq("id_cartera", Number(carteraId))
-      .order("id_plantilla", { ascending: true });
-    if (!pErr && Array.isArray(pData)) plantillas = pData;
+    // Usar RPCs para evitar problemas de search_path y RLS
+    const carteraNum = Number(carteraId);
+    const estrategiaNum = Number(strategyId);
 
-    // Obtener las plantillas ya asociadas a la estrategia
-    if (strategyId) {
-      const { data: relData, error: relErr } = await supabase
-        .from("modulo_estrategias.estrategia_plantilla")
-        .select("id_plantilla")
-        .eq("id_estrategia", Number(strategyId));
-      if (!relErr && Array.isArray(relData)) seleccionadas = relData.map(r => r.id_plantilla);
-      if (relErr) fetchError = relErr.message;
-    }
-    if (pErr) fetchError = pErr.message;
+    const [plsRes, selRes] = await Promise.all([
+      supabase.rpc("obtener_plantillas_filtradas", { p_id_cartera: carteraNum, p_id_estrategia: estrategiaNum }),
+      supabase.rpc("obtener_plantillas_seleccionadas", { p_id_estrategia: estrategiaNum })
+    ]);
+
+    if (plsRes.error) fetchError = plsRes.error.message;
+    if (selRes.error) fetchError = fetchError || selRes.error.message;
+
+    plantillas = Array.isArray(plsRes.data) ? plsRes.data : [];
+    seleccionadas = Array.isArray(selRes.data) ? selRes.data as number[] : [];
   } catch (e: any) {
     fetchError = e?.message ?? String(e);
   }
+
+  const preseleccionadasIds = Array.isArray(seleccionadas) ? seleccionadas : [];
 
   return (
     <div className="p-4 space-y-6">
@@ -48,12 +46,7 @@ export default async function TemplatesPage({ params }: { params: any }) {
         <Link href={`/modules/strategies/${carteraId}/complete/${strategyId}`} className="px-3 py-2 rounded border text-sm">Volver</Link>
       </div>
       {fetchError ? <div className="p-3 rounded bg-red-50 border border-red-200 text-sm text-red-700">Error cargando datos: {fetchError}</div> : null}
-      <TemplatesConfig
-        carteraId={carteraId}
-        strategyId={strategyId}
-        plantillas={plantillas}
-        seleccionadas={seleccionadas}
-      />
+      <TemplatesColumns plantillas={plantillas} strategyId={Number(strategyId)} preseleccionadas={preseleccionadasIds} />
     </div>
   );
 }
