@@ -1,10 +1,8 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-
-
 
 interface TicketProgramado {
   codigo_ticket: number
@@ -22,20 +20,19 @@ export default function ModuloProgramacion() {
   const [tickets, setTickets] = useState<TicketProgramado[]>([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('Todos')
-  const [mensaje, setMensaje] = useState<{tipo: 'error' | 'success', texto: string} | null>(null)
+  const [filtroEstado, setFiltroEstado] = useState('Activos')
+  const [filtroCartera, setFiltroCartera] = useState('Todas')
+  const [paginaActual, setPaginaActual] = useState(1)
+  const ITEMS_POR_PAGINA = 20
+  const [mensaje, setMensaje] = useState<{ tipo: 'error' | 'success', texto: string } | null>(null)
 
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  const supabase = createClient(supabaseUrl, supabaseKey)
-  
+  const supabase = createClient()
 
   useEffect(() => {
     if (supabase) {
       cargarDatos()
     } else {
-        setLoading(false)
+      setLoading(false)
     }
   }, [])
 
@@ -58,21 +55,38 @@ export default function ModuloProgramacion() {
       const clienteTexto = t.cliente ? t.cliente.toLowerCase() : ''
       const idTexto = t.codigo_ticket.toString()
       const coincideTexto = clienteTexto.includes(busquedaLower) || idTexto.includes(busquedaLower)
-      const coincideEstado = filtroEstado === 'Todos' || t.estado_ticket === filtroEstado
-      return coincideTexto && coincideEstado
+
+      const coincideEstado =
+        filtroEstado === 'Todos' ? true :
+          filtroEstado === 'Activos' ? (t.estado_ticket === 'Pendiente' || t.estado_ticket === 'En Ejecucion') :
+            t.estado_ticket === filtroEstado
+
+      const coincideCartera = filtroCartera === 'Todas' || t.cartera === filtroCartera
+
+      return coincideTexto && coincideEstado && coincideCartera
     })
-  }, [tickets, busqueda, filtroEstado])
+  }, [tickets, busqueda, filtroEstado, filtroCartera])
+
+  // Lógica de Paginación
+  const { ticketsPaginados, totalPaginas } = useMemo(() => {
+    const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA
+    const fin = inicio + ITEMS_POR_PAGINA
+    return {
+      ticketsPaginados: ticketsFiltrados.slice(inicio, fin),
+      totalPaginas: Math.ceil(ticketsFiltrados.length / ITEMS_POR_PAGINA)
+    }
+  }, [ticketsFiltrados, paginaActual])
+
+  // Resetear página al filtrar
+  useEffect(() => {
+    setPaginaActual(1)
+  }, [busqueda, filtroEstado, filtroCartera])
 
   async function cargarDatos() {
     try {
       setLoading(true)
-      const client = supabase as any
-      const { data, error } = await client
-        .schema('programacion') 
-        .from('vista_programacion_consolidada')
-        .select('*')
-        .order('codigo_ticket', { ascending: true })
-      
+      const { data, error } = await supabase.rpc('get_programacion')
+
       if (error) throw error
       setTickets((data as any[]) || [])
     } catch (err: any) {
@@ -85,7 +99,7 @@ export default function ModuloProgramacion() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 relative text-slate-900 pb-24">
-      
+
       {/* TÍTULO Y ACCIONES */}
       <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
@@ -93,75 +107,75 @@ export default function ModuloProgramacion() {
           <p className="text-gray-500 text-sm mt-1">Gestión y asignación de cartera</p>
         </div>
         <div className="flex gap-3">
-            
-            {/* BOTÓN NUEVO: SALA CRÍTICA */}
-            <Link 
-                href="/modules/programacion/criticos"
-                className="px-4 py-2 bg-red-600 border border-red-700 text-white rounded-md hover:bg-red-700 shadow-lg hover:shadow-red-200 transition-all text-sm font-bold flex items-center gap-2 animate-pulse"
-            >
-                🔥 Gestión de Críticos
-            </Link>
 
-            {/* BOTÓN REASIGNAR */}
-            <Link 
-                href="/modules/programacion/reasignacion"
-                className="px-4 py-2 bg-amber-100 border border-amber-300 text-amber-800 rounded-md hover:bg-amber-200 shadow-sm transition-all text-sm font-bold flex items-center gap-2"
-            >
-                🚑 Reasignar
-            </Link>
+          {/* BOTÓN NUEVO: SALA CRÍTICA */}
+          <Link
+            href="/modules/programacion/criticos"
+            className="px-4 py-2 bg-red-600 border border-red-700 text-white rounded-md hover:bg-red-700 shadow-lg hover:shadow-red-200 transition-all text-sm font-bold flex items-center gap-2 animate-pulse"
+          >
+            🔥 Gestión de Críticos
+          </Link>
 
-            <button onClick={cargarDatos} className="px-4 py-2 bg-white border border-gray-300 text-slate-700 rounded-md hover:bg-gray-50 shadow-sm transition-all text-sm font-medium">
-                ↻ Actualizar
-            </button>
+          {/* BOTÓN REASIGNAR */}
+          <Link
+            href="/modules/programacion/reasignacion"
+            className="px-4 py-2 bg-amber-100 border border-amber-300 text-amber-800 rounded-md hover:bg-amber-200 shadow-sm transition-all text-sm font-bold flex items-center gap-2"
+          >
+            🚑 Reasignar
+          </Link>
+
+          <button onClick={cargarDatos} className="px-4 py-2 bg-white border border-gray-300 text-slate-700 rounded-md hover:bg-gray-50 shadow-sm transition-all text-sm font-medium">
+            ↻ Actualizar
+          </button>
         </div>
       </div>
 
       {/* --- SECCIÓN DE KPIs --- */}
       <div className="max-w-7xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          
-          {/* Card 1: Deuda Total */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Deuda Total en Cartera</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">S/ {kpis.totalDeuda.toLocaleString('es-PE', { maximumFractionDigits: 0 })}</p>
-              <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 w-full"></div>
-              </div>
-          </div>
 
-          {/* Card 2: Cobertura */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Cobertura de Asignación</p>
-              <div className="flex items-end gap-2 mt-1">
-                  <p className="text-3xl font-bold text-slate-900">{kpis.cobertura}%</p>
-                  <span className="text-xs text-gray-500 mb-1">de tickets asignados</span>
-              </div>
-              <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full ${kpis.cobertura > 80 ? 'bg-green-500' : 'bg-yellow-500'} transition-all duration-500`} style={{ width: `${kpis.cobertura}%` }}></div>
-              </div>
+        {/* Card 1: Deuda Total */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Deuda Total en Cartera</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">S/ {kpis.totalDeuda.toLocaleString('es-PE', { maximumFractionDigits: 0 })}</p>
+          <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 w-full"></div>
           </div>
+        </div>
 
-          {/* Card 3: Pendientes */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tickets Pendientes</p>
-              <p className="text-3xl font-bold text-slate-900 mt-1">{kpis.sinAsignar}</p>
-              <p className="text-xs text-gray-500">Requieren atención inmediata</p>
+        {/* Card 2: Cobertura */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Cobertura de Asignación</p>
+          <div className="flex items-end gap-2 mt-1">
+            <p className="text-3xl font-bold text-slate-900">{kpis.cobertura}%</p>
+            <span className="text-xs text-gray-500 mb-1">de tickets asignados</span>
           </div>
+          <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-full ${kpis.cobertura > 80 ? 'bg-green-500' : 'bg-yellow-500'} transition-all duration-500`} style={{ width: `${kpis.cobertura}%` }}></div>
+          </div>
+        </div>
 
-          {/* Card 4: Críticos */}
-          <div className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between ${kpis.criticosSinAsignar > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-              <p className={`text-xs font-bold uppercase tracking-wider ${kpis.criticosSinAsignar > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                  Críticos Sin Asignar
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                  {kpis.criticosSinAsignar > 0 && <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>}
-                  <p className={`text-3xl font-bold ${kpis.criticosSinAsignar > 0 ? 'text-red-700' : 'text-green-800'}`}>
-                      {kpis.criticosSinAsignar}
-                  </p>
-              </div>
-              <p className={`text-xs ${kpis.criticosSinAsignar > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                  {kpis.criticosSinAsignar > 0 ? '⚠️ Prioridad Alta (Cartera Tardía)' : '✅ Todo bajo control'}
-              </p>
+        {/* Card 3: Pendientes */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tickets Pendientes</p>
+          <p className="text-3xl font-bold text-slate-900 mt-1">{kpis.sinAsignar}</p>
+          <p className="text-xs text-gray-500">Requieren atención inmediata</p>
+        </div>
+
+        {/* Card 4: Críticos */}
+        <div className={`p-4 rounded-xl border shadow-sm flex flex-col justify-between ${kpis.criticosSinAsignar > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+          <p className={`text-xs font-bold uppercase tracking-wider ${kpis.criticosSinAsignar > 0 ? 'text-red-600' : 'text-green-700'}`}>
+            Críticos Sin Asignar
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            {kpis.criticosSinAsignar > 0 && <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>}
+            <p className={`text-3xl font-bold ${kpis.criticosSinAsignar > 0 ? 'text-red-700' : 'text-green-800'}`}>
+              {kpis.criticosSinAsignar}
+            </p>
           </div>
+          <p className={`text-xs ${kpis.criticosSinAsignar > 0 ? 'text-red-600' : 'text-green-700'}`}>
+            {kpis.criticosSinAsignar > 0 ? '⚠️ Prioridad Alta (Cartera Tardía)' : '✅ Todo bajo control'}
+          </p>
+        </div>
       </div>
 
       {/* FILTROS */}
@@ -176,16 +190,30 @@ export default function ModuloProgramacion() {
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Filtro Estado */}
           <span className="text-sm text-gray-500 font-medium text-slate-700">Estado:</span>
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 sm:text-sm rounded-md bg-white text-slate-900"
           >
+            <option value="Activos">Activos (Pend + Ejec)</option>
             <option value="Todos">Todos</option>
             <option value="Pendiente">Pendiente</option>
             <option value="En Ejecucion">En Ejecución</option>
             <option value="Finalizado">Finalizado</option>
+          </select>
+
+          {/* Filtro Cartera */}
+          <span className="text-sm text-gray-500 font-medium text-slate-700 ml-4">Cartera:</span>
+          <select
+            value={filtroCartera}
+            onChange={(e) => setFiltroCartera(e.target.value)}
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 sm:text-sm rounded-md bg-white text-slate-900"
+          >
+            <option value="Todas">Todas</option>
+            <option value="Temprana">Temprana</option>
+            <option value="Tardia">Tardía</option>
           </select>
         </div>
       </div>
@@ -212,10 +240,10 @@ export default function ModuloProgramacion() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
-                 <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">Cargando datos...</td></tr>
-              ) : ticketsFiltrados.length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">Cargando datos...</td></tr>
+              ) : ticketsPaginados.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">{supabase ? "No hay tickets." : "⚠️ Descomenta Supabase."}</td></tr>
-              ) : ticketsFiltrados.map((t) => (
+              ) : ticketsPaginados.map((t) => (
                 <tr key={t.codigo_ticket} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <span className="font-medium text-slate-900">#{t.codigo_ticket}</span>
@@ -224,8 +252,8 @@ export default function ModuloProgramacion() {
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-slate-900">{t.cliente}</div>
                     <span className={`text-xs px-2 py-0.5 rounded-full 
-                        ${t.cartera === 'Tardia' ? 'bg-red-100 text-red-800' : 
-                          t.cartera === 'Temprana' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                        ${t.cartera === 'Tardia' ? 'bg-red-100 text-red-800' :
+                        t.cartera === 'Temprana' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
                       {t.cartera}
                     </span>
                   </td>
@@ -234,31 +262,31 @@ export default function ModuloProgramacion() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs rounded-full font-semibold border 
-                        ${t.estado_ticket === 'Pendiente' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
-                          t.estado_ticket === 'En Ejecucion' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
+                        ${t.estado_ticket === 'Pendiente' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+                        t.estado_ticket === 'En Ejecucion' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
                       {t.estado_ticket}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {t.recurso_asignado ? (
-                        <div>
-                            <span className="text-indigo-600 font-medium block">{t.recurso_asignado}</span>
-                            {t.nombre_equipo && (
-                                <span className="text-[10px] uppercase tracking-wide text-gray-400 block">
-                                    {t.nombre_equipo}
-                                </span>
-                            )}
-                        </div>
+                      <div>
+                        <span className="text-indigo-600 font-medium block">{t.recurso_asignado}</span>
+                        {t.nombre_equipo && (
+                          <span className="text-[10px] uppercase tracking-wide text-gray-400 block">
+                            {t.nombre_equipo}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                        <span className="text-gray-400 italic">--</span>
+                      <span className="text-gray-400 italic">--</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Link 
-                        href={`/modules/programacion/${t.codigo_ticket}`}
-                        className="text-indigo-600 hover:text-indigo-900 font-medium text-sm flex items-center justify-end gap-1"
+                    <Link
+                      href={`/modules/programacion/${t.codigo_ticket}`}
+                      className="text-indigo-600 hover:text-indigo-900 font-medium text-sm flex items-center justify-end gap-1"
                     >
-                        Ver Detalle
+                      Ver Detalle
                     </Link>
                   </td>
                 </tr>
@@ -266,6 +294,65 @@ export default function ModuloProgramacion() {
             </tbody>
           </table>
         </div>
+
+        {/* PAGINACIÓN */}
+        {totalPaginas > 1 && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Mostrando página <span className="font-medium">{paginaActual}</span> de <span className="font-medium">{totalPaginas}</span>
+            </div>
+            <div className="flex gap-2">
+              {/* Botón Anterior */}
+              <button
+                onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                disabled={paginaActual === 1}
+                className={`px-3 py-1 rounded-md text-sm font-medium border ${paginaActual === 1
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+              >
+                &lt;
+              </button>
+
+              {/* Números de Página */}
+              {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                // Lógica para mostrar ventana de páginas cercana a la actual
+                let pageNum = paginaActual - 2 + i
+                if (paginaActual < 3) pageNum = i + 1
+                if (paginaActual > totalPaginas - 2) pageNum = totalPaginas - 4 + i
+
+                // Asegurar límites
+                if (pageNum < 1) pageNum = i + 1
+                if (pageNum > totalPaginas) return null
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPaginaActual(pageNum)}
+                    className={`px-3 py-1 rounded-md text-sm font-medium border ${paginaActual === pageNum
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+
+              {/* Botón Siguiente */}
+              <button
+                onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                disabled={paginaActual === totalPaginas}
+                className={`px-3 py-1 rounded-md text-sm font-medium border ${paginaActual === totalPaginas
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+              >
+                &gt;
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
