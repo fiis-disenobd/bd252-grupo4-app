@@ -120,6 +120,203 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.guardar_config_canales(jsonb) TO anon, authenticated;
 
+-- Function 5: obtener_detalle_estrategia
+-- Returns detalle_estrategia for a given strategy ID
+CREATE OR REPLACE FUNCTION public.obtener_detalle_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_agg(row_to_json(d))
+     FROM modulo_estrategias.detalle_estrategia d
+     WHERE d.id_estrategia = p_id_estrategia),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_detalle_estrategia(int) TO anon, authenticated;
+
+-- Function 6: obtener_plantillas_estrategia
+-- Returns plantillas associated with a strategy
+CREATE OR REPLACE FUNCTION public.obtener_plantillas_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_agg(
+      jsonb_build_object(
+        'id_plantilla', ep.id_plantilla,
+        'nombre', p.nombre,
+        'canal', c.nombre,
+        'descripcion', p.descripcion,
+        'contenido', p.contenido
+      )
+    )
+    FROM modulo_estrategias.estrategia_plantilla ep
+    LEFT JOIN modulo_estrategias.plantilla p ON p.id_plantilla = ep.id_plantilla
+    LEFT JOIN modulo_estrategias.canal_cobranza c ON c.id_canal = p.id_canal
+    WHERE ep.id_estrategia = p_id_estrategia),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_plantillas_estrategia(int) TO anon, authenticated;
+
+-- Function 7: obtener_incentivos_estrategia
+-- Returns incentivos for a given strategy
+CREATE OR REPLACE FUNCTION public.obtener_incentivos_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_agg(row_to_json(i))
+     FROM modulo_estrategias.catalogo_incentivo i
+     WHERE i.id_estrategia = p_id_estrategia),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_incentivos_estrategia(int) TO anon, authenticated;
+
+-- Function 8: obtener_refinanciamientos_estrategia
+-- Returns refinanciamientos for a given strategy
+CREATE OR REPLACE FUNCTION public.obtener_refinanciamientos_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_agg(row_to_json(r))
+     FROM modulo_estrategias.catalogo_refinanciamiento r
+     WHERE r.id_estrategia = p_id_estrategia),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_refinanciamientos_estrategia(int) TO anon, authenticated;
+
+-- Function 9: obtener_plantillas_filtradas
+-- Returns plantillas of a cartera filtered by configured channels of the strategy
+CREATE OR REPLACE FUNCTION public.obtener_plantillas_filtradas(p_id_cartera int, p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  WITH canales_cfg AS (
+    SELECT DISTINCT d.id_canal
+    FROM modulo_estrategias.detalle_estrategia d
+    WHERE d.id_estrategia = p_id_estrategia
+  )
+  SELECT COALESCE(
+    (
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id_plantilla', pl.id_plantilla,
+          'nombre', pl.nombre,
+          'descripcion', pl.descripcion,
+          'contenido', pl.contenido,
+          'id_cartera', pl.id_cartera,
+          'id_canal', pl.id_canal,
+          'canal', c.nombre
+        )
+        ORDER BY pl.id_plantilla
+      )
+      FROM modulo_estrategias.plantilla pl
+      INNER JOIN canales_cfg cfg ON cfg.id_canal = pl.id_canal
+      LEFT JOIN modulo_estrategias.canal_cobranza c ON c.id_canal = pl.id_canal
+      WHERE pl.id_cartera = p_id_cartera
+    ),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_plantillas_filtradas(int, int) TO anon, authenticated;
+
+-- Function 10: obtener_plantillas_seleccionadas
+-- Returns the list of id_plantilla currently linked to a strategy
+CREATE OR REPLACE FUNCTION public.obtener_plantillas_seleccionadas(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+  SELECT COALESCE(
+    (
+      SELECT jsonb_agg(ep.id_plantilla ORDER BY ep.id_plantilla)
+      FROM modulo_estrategias.estrategia_plantilla ep
+      WHERE ep.id_estrategia = p_id_estrategia
+    ),
+    '[]'::jsonb
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.obtener_plantillas_seleccionadas(int) TO anon, authenticated;
+
+-- Function 11: guardar_plantillas_estrategia
+-- Bulk insert selected plantilla IDs for a strategy. Ignores duplicates.
+CREATE OR REPLACE FUNCTION public.guardar_plantillas_estrategia(p_id_estrategia int, p_ids int[])
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+DECLARE
+  inserted_count int := 0;
+BEGIN
+  IF p_ids IS NULL OR array_length(p_ids, 1) IS NULL THEN
+    RETURN jsonb_build_object('success', true, 'count', 0);
+  END IF;
+
+  INSERT INTO modulo_estrategias.estrategia_plantilla (id_estrategia, id_plantilla)
+  SELECT p_id_estrategia, UNNEST(p_ids)
+  ON CONFLICT (id_estrategia, id_plantilla) DO NOTHING;
+
+  GET DIAGNOSTICS inserted_count = ROW_COUNT;
+
+  RETURN jsonb_build_object('success', true, 'count', inserted_count);
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.guardar_plantillas_estrategia(int, int[]) TO anon, authenticated;
+
+-- Function 12: finalizar_estrategia
+-- Changes the strategy state from 'P' (Pendiente) to 'C' (En Cola)
+CREATE OR REPLACE FUNCTION public.finalizar_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+BEGIN
+  UPDATE modulo_estrategias.estrategia
+  SET id_estado_estrategia = 'C'
+  WHERE id_estrategia = p_id_estrategia
+    AND id_estado_estrategia = 'P';
+
+  IF FOUND THEN
+    RETURN jsonb_build_object('success', true, 'message', 'Estrategia movida a la cola exitosamente.');
+  ELSE
+    RETURN jsonb_build_object('success', false, 'error', 'Estrategia no encontrada o no está en estado Pendiente.');
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.finalizar_estrategia(int) TO anon, authenticated;
+
 -- ==============================================================================
 -- End of RPC Functions
 -- ==============================================================================
@@ -128,4 +325,9 @@ GRANT EXECUTE ON FUNCTION public.guardar_config_canales(jsonb) TO anon, authenti
 --   await supabase.rpc('lista_frecuencias')
 --   await supabase.rpc('lista_turnos')
 --   await supabase.rpc('guardar_config_canales', { rows_data: [...] })
+--   await supabase.rpc('obtener_detalle_estrategia', { p_id_estrategia: 123 })
+--   await supabase.rpc('obtener_plantillas_estrategia', { p_id_estrategia: 123 })
+--   await supabase.rpc('obtener_incentivos_estrategia', { p_id_estrategia: 123 })
+--   await supabase.rpc('obtener_refinanciamientos_estrategia', { p_id_estrategia: 123 })
+--   await supabase.rpc('finalizar_estrategia', { p_id_estrategia: 123 })
 -- ==============================================================================

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import FinalizarButton from "./FinalizarButton";
 
 export default async function CompleteStrategyPage({ params }: { params: any }) {
   // Be defensive: Next may sometimes pass `params` as a Promise or wrap them
@@ -70,6 +71,8 @@ export default async function CompleteStrategyPage({ params }: { params: any }) 
 
           <Link href={`/modules/strategies/${carteraId}/complete/${strategyId}/refinanciamientos`} className="block w-full p-6 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-center text-lg font-medium">Refinanciamientos</Link>
         </div>
+
+        <FinalizarButton strategyId={Number(strategyId)} carteraId={carteraId} />
       </div>
     </div>
   );
