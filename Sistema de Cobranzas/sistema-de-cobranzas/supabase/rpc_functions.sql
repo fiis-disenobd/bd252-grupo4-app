@@ -317,6 +317,89 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.finalizar_estrategia(int) TO anon, authenticated;
 
+-- Function 13: guardar_incentivos_estrategia
+-- Inserts incentives for a strategy. Valid names: 'Condonación', 'Descuento', 'Bonificación'
+CREATE OR REPLACE FUNCTION public.guardar_incentivos_estrategia(p_id_estrategia int, p_items jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+DECLARE
+  item jsonb;
+  inserted_count int := 0;
+  v_nombre text;
+  v_min numeric;
+  v_max numeric;
+BEGIN
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Entrada inválida: se esperaba un arreglo JSON');
+  END IF;
+
+  FOR item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_nombre := item->>'nombre';
+    v_min := (item->>'valor_min')::numeric;
+    v_max := (item->>'valor_max')::numeric;
+
+    IF v_nombre NOT IN ('Condonación', 'Descuento', 'Bonificación') THEN
+      CONTINUE; -- ignora nombres inválidos
+    END IF;
+
+    INSERT INTO modulo_estrategias.catalogo_incentivo (nombre, valor_min, valor_max, id_estrategia)
+    VALUES (v_nombre, COALESCE(v_min, 0), COALESCE(v_max, 0), p_id_estrategia);
+    inserted_count := inserted_count + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object('success', true, 'count', inserted_count);
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.guardar_incentivos_estrategia(int, jsonb) TO anon, authenticated;
+
+-- Function 14: guardar_refinanciamiento_estrategia
+-- Inserts a refinancing configuration for a strategy
+CREATE OR REPLACE FUNCTION public.guardar_refinanciamiento_estrategia(p_id_estrategia int, p_data jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+DECLARE
+  v_monto NUMERIC(10,2);
+  v_tasa NUMERIC(4,2);
+  v_cuotas INT;
+  v_plazo INT;
+  v_condonado NUMERIC(4,2);
+BEGIN
+  IF p_data IS NULL OR jsonb_typeof(p_data) <> 'object' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Entrada inválida: se esperaba un objeto JSON');
+  END IF;
+
+  v_monto := (p_data->>'monto_inicial')::numeric;
+  v_tasa := (p_data->>'tasa_interes')::numeric;
+  v_cuotas := (p_data->>'num_cuotas')::int;
+  v_plazo := (p_data->>'plazo_meses')::int;
+  v_condonado := (p_data->>'porcentaje_condonado')::numeric;
+
+  INSERT INTO modulo_estrategias.catalogo_refinanciamiento (
+    monto_inicial, tasa_interes, num_cuotas, plazo_meses, porcentaje_condonado, id_estrategia
+  ) VALUES (
+    COALESCE(v_monto, 0), COALESCE(v_tasa, 0), COALESCE(v_cuotas, 0), COALESCE(v_plazo, 0), COALESCE(v_condonado, 0), p_id_estrategia
+  );
+
+  RETURN jsonb_build_object('success', true);
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.guardar_refinanciamiento_estrategia(int, jsonb) TO anon, authenticated;
+
 -- ==============================================================================
 -- End of RPC Functions
 -- ==============================================================================

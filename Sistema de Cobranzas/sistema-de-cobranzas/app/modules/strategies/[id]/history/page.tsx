@@ -42,7 +42,7 @@ export default async function HistoryPage({ params }: { params: any }) {
       .from("modulo_estrategias.estrategia")
       .select("*")
       .eq("id_cartera", Number(id))
-      .order("fecha_inicio", { ascending: false }) as any;
+      .order("codigo", { ascending: true }) as any;
 
     if (!error && Array.isArray(data)) rows = data;
   } catch (e) {
@@ -56,6 +56,15 @@ export default async function HistoryPage({ params }: { params: any }) {
     } catch (e) {
       // ignore
     }
+  }
+
+  // Ensure ordering by "codigo" if present
+  if (Array.isArray(rows) && rows.length > 1) {
+    rows.sort((a: any, b: any) => {
+      const ac = (a?.codigo ?? "").toString();
+      const bc = (b?.codigo ?? "").toString();
+      return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
+    });
   }
 
   return (
