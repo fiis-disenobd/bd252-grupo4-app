@@ -290,6 +290,33 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.guardar_plantillas_estrategia(int, int[]) TO anon, authenticated;
 
+-- Function 12: finalizar_estrategia
+-- Changes the strategy state from 'P' (Pendiente) to 'C' (En Cola)
+CREATE OR REPLACE FUNCTION public.finalizar_estrategia(p_id_estrategia int)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, modulo_estrategias
+AS $$
+BEGIN
+  UPDATE modulo_estrategias.estrategia
+  SET id_estado_estrategia = 'C'
+  WHERE id_estrategia = p_id_estrategia
+    AND id_estado_estrategia = 'P';
+
+  IF FOUND THEN
+    RETURN jsonb_build_object('success', true, 'message', 'Estrategia movida a la cola exitosamente.');
+  ELSE
+    RETURN jsonb_build_object('success', false, 'error', 'Estrategia no encontrada o no está en estado Pendiente.');
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.finalizar_estrategia(int) TO anon, authenticated;
+
 -- ==============================================================================
 -- End of RPC Functions
 -- ==============================================================================
@@ -302,4 +329,5 @@ GRANT EXECUTE ON FUNCTION public.guardar_plantillas_estrategia(int, int[]) TO an
 --   await supabase.rpc('obtener_plantillas_estrategia', { p_id_estrategia: 123 })
 --   await supabase.rpc('obtener_incentivos_estrategia', { p_id_estrategia: 123 })
 --   await supabase.rpc('obtener_refinanciamientos_estrategia', { p_id_estrategia: 123 })
+--   await supabase.rpc('finalizar_estrategia', { p_id_estrategia: 123 })
 -- ==============================================================================
