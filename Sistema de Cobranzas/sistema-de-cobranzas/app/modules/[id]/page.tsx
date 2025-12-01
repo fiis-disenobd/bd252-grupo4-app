@@ -13,6 +13,16 @@ const modules: Record<
       { code: "R104", name: "Autenticación Multifactor" },
     ],
   },
+  // alias en español
+  seguridad: {
+    title: "Módulo de Seguridad",
+    requirements: [
+      { code: "R101", name: "Registro de usuarios" },
+      { code: "R102", name: "Otorgamiento de permisos" },
+      { code: "R103", name: "Recuperación de contraseña" },
+      { code: "R104", name: "Autenticación Multifactor" },
+    ],
+  },
   scheduling: {
     title: "Módulo de Programación de Recursos",
     requirements: [
@@ -59,8 +69,10 @@ const modules: Record<
 
 type Params = { params: { id: string } };
 
-export default function ModulePage({ params }: Params) {
-  const id = params.id;
+export default async function ModulePage({ params }: Params) {
+  // Next may pass params as a Promise in some dev environments; await to be safe
+  const resolvedParams = (params && typeof (params as any).then === 'function') ? await (params as any) : params;
+  const id = resolvedParams.id;
   const mod = modules[id];
 
   if (!mod) return notFound();
