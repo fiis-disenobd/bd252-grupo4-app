@@ -1,0 +1,300 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+
+
+interface DetalleTicket {
+  codigo_ticket: number
+  fecha_programada: string
+  estado_ticket: string
+  cliente: string
+  codigo_cliente: string
+  cartera: string
+  monto_deuda: number
+  diasmora: number
+  recurso_asignado: string | null
+  lista_contactos: Contacto[]
+  lista_productos: Producto[]
+  nombre_equipo: string | null
+}
+
+interface Contacto {
+  tipo_contacto: string
+  valor_contacto: string
+}
+
+interface Producto {
+  descripcion: string
+  tipo_producto: string
+  moneda: string
+  valor: number
+}
+
+// INTERFAZ CORREGIDA (Coincide con la Base de Datos)
+interface HistorialItem {
+  fecha_cambio: string
+  tipo_cambio: string
+  codigo_recurso_anterior: string | null
+  codigo_recurso_nuevo: string | null
+}
+
+export default function DetalleTicketPage() {
+  const params = useParams()
+  const ticketId = params?.id as string
+
+  const [ticket, setTicket] = useState<DetalleTicket | null>(null)
+  const [historial, setHistorial] = useState<HistorialItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+
+  useEffect(() => {
+    if (ticketId && supabase) {
+      cargarDetalle()
+    } else {
+      setLoading(false)
+    }
+  }, [ticketId])
+
+  async function cargarDetalle() {
+    try {
+      setLoading(true)
+      const client = supabase as any
+
+      // 1. Consultar Detalle
+      const { data, error } = await client
+        .schema('programacion')
+        .from('vista_detalle_ticket_completo')
+        .select('*')
+        .eq('codigo_ticket', parseInt(ticketId))
+        .single()
+
+      if (error) throw error
+      setTicket(data)
+
+      // 2. Consultar Historial (CORREGIDO: Nombres de columnas reales)
+      const { data: dataHistorial, error: errHist } = await client
+        .schema('programacion')
+        .from('historial_asignacion')
+        .select('fecha_cambio, tipo_cambio, codigo_recurso_anterior, codigo_recurso_nuevo')
+        .eq('codigo_ticket', parseInt(ticketId))
+        .order('fecha_cambio', { ascending: false })
+
+      if (!errHist && dataHistorial) {
+        setHistorial(dataHistorial)
+      }
+
+    } catch (err: any) {
+      console.error(err)
+      setError("Error al cargar: " + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-slate-600">Cargando información...</div>
+
+  if (!ticket) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-slate-600 gap-4">
+      <p>{supabase ? "No se encontró el ticket." : "⚠️ Recuerda descomentar la conexión a Supabase."}</p>
+      <Link href="/modules/programacion" className="text-indigo-600 hover:underline">Volver al tablero</Link>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-8 text-slate-900">
+
+      {/* NAVEGACIÓN */}
+      <div className="max-w-6xl mx-auto mb-6">
+        <Link href="/modules/programacion" className="text-gray-500 hover:text-indigo-600 text-sm font-medium flex items-center gap-1 transition-colors">
+          ← Volver al Tablero
+        </Link>
+      </div>
+
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+
+        {/* HEADER */}
+        <div className="bg-slate-900 p-8 flex justify-between items-center text-white shadow-md">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">ID #{ticket.codigo_ticket}</h1>
+            <p className="text-slate-400 text-sm mt-1">Fecha Programada: {ticket.fecha_programada}</p>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-xs uppercase tracking-wider text-slate-400 mb-1 font-semibold">Estado Actual</span>
+            <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm 
+                ${ticket.estado_ticket === 'Pendiente' ? 'bg-yellow-400 text-yellow-900' :
+                ticket.estado_ticket === 'En Ejecucion' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>
+              {ticket.estado_ticket}
+            </span>
+          </div>
+        </div>
+
+        {/* CUERPO PRINCIPAL */}
+        <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+          {/* DATOS CLIENTE */}
+          <div className="lg:col-span-1 space-y-8">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 border-b-2 border-gray-100 pb-3 mb-6">Cliente</h2>
+              <p className="text-2xl font-medium text-slate-900">{ticket.cliente}</p>
+              <p className="text-sm text-gray-500 mt-1">ID: {ticket.codigo_cliente}</p>
+              <div className="mt-3">
+                <span className={`inline-block px-4 py-2 rounded-lg text-base font-medium border
+                        ${ticket.cartera === 'Tardia' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-slate-700 border-gray-200'}`}>
+                  {ticket.cartera}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 border-b-2 border-gray-100 pb-2 mb-4">Contactos</h2>
+              {ticket.lista_contactos && ticket.lista_contactos.length > 0 ? (
+                <ul className="space-y-3">
+                  {ticket.lista_contactos.map((c, idx) => (
+                    <li key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <span className="text-lg">{c.tipo_contacto === 'Celular' ? '📱' : '📞'}</span>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">{c.tipo_contacto}</p>
+                        <p className="text-sm text-slate-600 break-all">{c.valor_contacto}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-sm text-gray-400 italic">Sin contactos registrados.</p>}
+            </div>
+          </div>
+
+          {/* DATOS FINANCIEROS Y ASIGNACIÓN */}
+          <div className="lg:col-span-2 space-y-8">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
+                <label className="text-xs font-bold text-indigo-500 uppercase block mb-1">Deuda Total</label>
+                <p className="text-4xl font-bold text-indigo-900 tracking-tight">
+                  S/ {ticket.monto_deuda.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                <label className="text-xs font-bold text-red-500 uppercase block mb-1">Días de Atraso</label>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-5xl font-extrabold text-red-700">{ticket.diasmora}</span>
+                  <span className="text-lg font-bold text-red-800">días</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Productos */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Productos</h3>
+              {ticket.lista_productos && ticket.lista_productos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {ticket.lista_productos.map((prod, idx) => (
+                    <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between">
+                        <span className="text-xs font-bold uppercase bg-white px-2 py-1 rounded border">{prod.tipo_producto}</span>
+                        <span className="text-xs text-gray-500">{prod.moneda}</span>
+                      </div>
+                      <p className="font-bold text-slate-800 mt-2">{prod.descripcion}</p>
+                      <p className="text-sm text-slate-600">Monto: {prod.valor.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-gray-400 italic">Sin productos.</p>}
+            </div>
+
+            {/* Asignación Actual */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3">Recurso Asignado</label>
+              {ticket.recurso_asignado ? (
+                <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
+                  <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                    {ticket.recurso_asignado.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-indigo-900">{ticket.recurso_asignado}</p>
+                    <p className="text-xs text-indigo-500 font-medium">Asignado actualmente</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800">
+                  <span>⚠️</span>
+                  <p className="text-sm font-medium">Pendiente de asignación</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+
+        {/* SECCIÓN DE HISTORIAL (TRAZABILIDAD) - SIEMPRE VISIBLE */}
+        <div className="bg-gray-50 border-t border-gray-200 p-8">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">📜 Historial de Asignaciones (Trazabilidad)</h3>
+
+          <div className="space-y-4 ml-2 border-l-2 border-gray-300 pl-6 relative">
+            {historial.length === 0 ? (
+              <div className="text-sm text-gray-400 italic py-2">
+                No hay movimientos registrados en este ticket todavía.
+              </div>
+            ) : (
+              historial.map((h, idx) => (
+                <div key={idx} className="relative mb-6">
+                  {/* Punto en la línea de tiempo */}
+                  <span className={`absolute -left-[33px] top-1 h-4 w-4 rounded-full border-2 border-white shadow-sm
+                                ${h.tipo_cambio === 'ASIGNACION INICIAL' ? 'bg-green-500' :
+                      h.tipo_cambio === 'LIBERACION' ? 'bg-red-500' : 'bg-blue-500'}`}>
+                  </span>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <div>
+                      <p className="text-xs text-gray-400 font-mono mb-1">
+                        {new Date(h.fecha_cambio).toLocaleString()}
+                      </p>
+                      <div className="text-sm font-bold text-slate-800">
+                        {h.tipo_cambio === 'ASIGNACION INICIAL' && (
+                          <span>Asignado inicialmente a <span className="text-indigo-600">{h.codigo_recurso_nuevo}</span></span>
+                        )}
+                        {h.tipo_cambio === 'REASIGNACION' && (
+                          <span>Transferido: De <span className="text-red-500 line-through">{h.codigo_recurso_anterior || 'Nadie'}</span> ➝ A <span className="text-green-600">{h.codigo_recurso_nuevo}</span></span>
+                        )}
+                        {h.tipo_cambio === 'LIBERACION' && (
+                          <span>Asignación liberada de {h.codigo_recurso_anterior}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded mt-2 sm:mt-0 uppercase tracking-wide">
+                      {h.tipo_cambio}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* PIE DE PÁGINA: ACCIONES */}
+        {/* <div className="bg-white px-8 py-6 border-t border-gray-200 flex justify-end items-center gap-4">
+            {ticket.estado_ticket !== 'Finalizado' && (
+                <Link
+                    href={`/modules/programacion/${ticket.codigo_ticket}/asignar`}
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
+                >
+                    {ticket.recurso_asignado ? (
+                        <>✏️ Cambiar Asignación / Horario</>
+                    ) : (
+                        <>🔍 Buscar Disponibilidad y Asignar</>
+                    )}
+                </Link>
+            )}
+        </div> */}
+
+      </div>
+    </div>
+  )
+}
