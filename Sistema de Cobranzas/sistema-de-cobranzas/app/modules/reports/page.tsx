@@ -35,14 +35,14 @@ interface TicketProgramado {
 /*------------- DATA DE PRUEBA PARA LOS GRÁFICOS-----------------*/
 const COLORS = ['#4f46e5', '#22c55e', '#f97316', '#ef4444']
 
-// Deuda total por cartera (miles de soles)
+// Deuda total por cartera
 const deudaPorCarteraData = [
   { name: 'Temprana', value: 420_000 },
   { name: 'Normal', value: 680_000 },
   { name: 'Tardía', value: 310_000 },
 ]
 
-// Cobertura mensual (porcentaje de tickets asignados)
+// Cobertura mensual
 const coberturaMensualData = [
   { mes: 'Ene', cobertura: 65, meta: 75 },
   { mes: 'Feb', cobertura: 72, meta: 78 },
