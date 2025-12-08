@@ -21,7 +21,7 @@ interface Experto {
   nivelexperiencia: string
   nombre_equipo: string
   carga_actual: number
-  horario_dia: string // <--- NUEVO: Para mostrar el turno
+  horario_dia: string
 }
 
 export default function PaginaCriticos() {
@@ -52,14 +52,12 @@ export default function PaginaCriticos() {
   useEffect(() => {
     if (supabase) {
       cargarCriticos()
-      // Iniciamos con la fecha de hoy
       setFechaProgramada(new Date().toISOString().split('T')[0])
     } else {
         setLoading(false)
     }
   }, [])
 
-  // Cada vez que cambia la fecha, recargamos la disponibilidad de los expertos
   useEffect(() => {
       if (fechaProgramada && supabase) {
           cargarDisponibilidadExpertos(fechaProgramada)
@@ -84,11 +82,9 @@ export default function PaginaCriticos() {
     setLoadingExpertos(true)
     const client = supabase as any
     
-    // Usamos la función RPC inteligente que ya creamos
     const { data, error } = await client.rpc('consultar_disponibilidad', { p_fecha: fecha })
 
     if (!error && data) {
-        // Filtramos en el frontend para mostrar SOLO EXPERTOS (Regla de Negocio)
         const soloExpertos = data.filter((r: any) => r.nivelexperiencia === 'Experto')
         setExpertos(soloExpertos)
     }
@@ -97,7 +93,6 @@ export default function PaginaCriticos() {
 
   const abrirAsignacion = (id: number) => {
       setSelectedTicket(id)
-      // Resetear formulario
       setSelectedExperto('')
       setHoraProgramada('09:00')
       setFechaProgramada(new Date().toISOString().split('T')[0]) // Reset a hoy
@@ -120,7 +115,7 @@ export default function PaginaCriticos() {
           await client.schema('programacion').from('ticket')
             .update({ 
                 estado: 'En Ejecucion', 
-                fecha_programada: fechaProgramada, // Guardamos la fecha elegida
+                fecha_programada: fechaProgramada,
                 horaprogramada: horaProgramada 
             })
             .eq('codigo_ticket', selectedTicket)
@@ -130,7 +125,6 @@ export default function PaginaCriticos() {
             .upsert({ codigo_ticket: selectedTicket, codigo_recurso: selectedExperto }, { onConflict: 'codigo_ticket' })
 
           await cargarCriticos()
-          // Recargar expertos para actualizar sus barras de carga visualmente
           await cargarDisponibilidadExpertos(fechaProgramada)
           
           setModalOpen(false)
@@ -142,7 +136,6 @@ export default function PaginaCriticos() {
       }
   }
 
-  // Helpers Visuales (Mismos que en la otra página)
   const getCargaColor = (carga: number) => {
       if (carga < 3) return 'bg-green-500'
       if (carga < 6) return 'bg-yellow-500'
