@@ -32,16 +32,14 @@ export default function PaginaConfirmacion() {
   }, [ticketId])
 
   async function cargarDatosConfirmados() {
-    // Consultamos los datos frescos para confirmar al usuario qué acaba de pasar
     const client = supabase as any
     const { data } = await client
       .schema('programacion')
       .from('vista_programacion_consolidada')
-      .select('cliente, recurso_asignado, fecha_programada') // Nota: La vista quizas no tiene hora, la sacamos del ticket directo si hace falta
+      .select('cliente, recurso_asignado, fecha_programada')
       .eq('codigo_ticket', parseInt(ticketId))
       .single()
     
-    // Sacamos la hora directamente de la tabla ticket porque a veces las vistas tardan en refrescar o no tienen la columna
     const { data: ticketData } = await client
         .schema('programacion')
         .from('ticket')
