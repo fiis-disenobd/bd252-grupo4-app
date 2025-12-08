@@ -32,7 +32,7 @@ interface TicketProgramado {
   nombre_equipo: string | null
 }
 
-/*------------- DATA DE PRUEBA PARA LOS GRÁFICOS-----------------*/
+/* Sample chart colors and data */
 const COLORS = ['#4f46e5', '#22c55e', '#f97316', '#ef4444']
 
 // Deuda total por cartera
@@ -58,7 +58,6 @@ const pendientesPorEstadoData = [
   { estado: 'En Ejecución', cantidad: 80, meta: 90 },
   { estado: 'Finalizado', cantidad: 300, meta: 280 },
 ]
-/*------------- DATA DE PRUEBA PARA LOS GRÁFICOS-----------------*/
 
 export default function ModuloReportes() {
   const [tickets, setTickets] = useState<TicketProgramado[]>([])

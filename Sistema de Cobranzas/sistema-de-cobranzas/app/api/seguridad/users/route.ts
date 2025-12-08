@@ -1,28 +1,22 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
 import crypto from 'crypto';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const sql = `
-      SELECT 
-        u.id_usuario,
-        u.nombres,
-        u.apellidos,
-        u.email,
-        u.nombre_usuario,
-        r.nombre AS rol,
-        e.nombre AS estado,
-        u.creado_en
-      FROM seguridad.usuario u
-      LEFT JOIN seguridad.usuario_rol ur ON u.id_usuario = ur.id_usuario
-      LEFT JOIN seguridad.rol r ON ur.id_rol = r.id_rol
-      LEFT JOIN seguridad.estado e ON u.id_estado = e.id_estado
-      ORDER BY u.creado_en DESC
-    `;
-    const res = await query(sql);
-    return NextResponse.json({ success: true, users: res.rows });
+    const client = await createClient();
+    const { data, error } = await client.rpc('obtener_usuarios');
+
+    if (error) {
+      throw error;
+    }
+
+    // data is already JSONB, parse if needed
+    const users = typeof data === 'string' ? JSON.parse(data) : (data || []);
+
+    return NextResponse.json({ success: true, users });
   } catch (e: any) {
+    console.error('Error fetching users:', e);
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }
 }
@@ -31,25 +25,42 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { nombres, apellidos, telefono, nombre_usuario, email, password } = body;
-    if (!nombres || !apellidos || !nombre_usuario || !email) {
+    if (!nombres || !apellidos || !email) {
       return NextResponse.json({ success: false, error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
-    // Hash password server-side (sha256). If using Supabase Auth, prefer creating user via Supabase Auth instead.
-    let password_hash: Buffer | null = null;
+    const client = await createClient();
+
+    // Hash password server-side (sha256) - send as hex string
+    let password_hash_hex: string | null = null;
     if (password) {
-      const hash = crypto.createHash('sha256').update(password).digest('hex');
-      password_hash = Buffer.from(hash, 'hex');
+      password_hash_hex = crypto.createHash('sha256').update(password).digest('hex');
     }
 
-    const sql = `
-      INSERT INTO seguridad.usuario (nombres, apellidos, telefono, nombre_usuario, email, password_hash, id_estado)
-      VALUES ($1,$2,$3,$4,$5,$6,1)
-      RETURNING *
-    `;
-    const params = [nombres, apellidos, telefono ?? null, nombre_usuario, email, password_hash];
-    const res = await query(sql, params);
-    return NextResponse.json({ success: true, user: res.rows[0] }, { status: 201 });
+    const username = nombre_usuario && nombre_usuario.trim() !== ''
+      ? nombre_usuario
+      : (email ? email.split('@')[0] : 'usuario');
+
+    const { data, error } = await client.rpc('crear_usuario', {
+      p_nombres: nombres,
+      p_apellidos: apellidos,
+      p_telefono: telefono ?? null,
+      p_nombre_usuario: username,
+      p_email: email,
+      p_password_hash: password_hash_hex,
+      p_id_estado: 1
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // Check if RPC returned an error in data
+    if (data && typeof data === 'object' && data.success === false) {
+      throw new Error(data.error || 'Error creating user');
+    }
+
+    return NextResponse.json({ success: true, user: data });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
   }

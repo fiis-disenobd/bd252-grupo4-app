@@ -202,48 +202,39 @@ AS $$
 DECLARE
     cur_usuarios_activos CURSOR FOR 
         SELECT 
-            u.id_usuario,
-            u.id_auth,
-            u.nombre_usuario,
-            u.creado_en,
-            MAX(
-              CASE
-                WHEN p_usar_auth_sessions THEN (
-                    -- usar auth.sessions.created_at si existe
-                    (SELECT MAX(s.created_at) FROM auth.sessions s WHERE s.user_id = u.id_auth)
-                )
-                ELSE MAX(s2.fecha_inicio)
-              END
-            ) AS ultima_sesion_registrada
+            u.id_usuario, 
+            u.nombre_usuario, 
+            u.creado_en, 
+            MAX(s.fecha_inicio) AS ultima_sesion_registrada
         FROM seguridad.usuario u
-        LEFT JOIN seguridad.sesion s2 ON u.id_usuario = s2.id_usuario
+        LEFT JOIN seguridad.sesion s ON u.id_usuario = s.id_usuario
         WHERE u.id_estado = 1
-        GROUP BY u.id_usuario, u.id_auth, u.nombre_usuario, u.creado_en;
+        GROUP BY u.id_usuario, u.nombre_usuario, u.creado_en;
 
-    v_id_usuario           INTEGER;
-    v_id_auth              UUID;
-    v_nombre_usuario       VARCHAR(150);
-    v_creado_en            TIMESTAMP;
-    v_ultima_sesion_cursor TIMESTAMP;
-    v_contador_baja        INTEGER := 0;
-    v_fecha_corte          TIMESTAMP;
+    v_id_usuario             INTEGER;
+    v_nombre_usuario         VARCHAR(50);
+    v_creado_en              TIMESTAMP;
+    v_ultima_sesion_cursor   TIMESTAMP;
+    v_contador_baja          INTEGER := 0;
+    v_fecha_corte            TIMESTAMP;
+
 BEGIN
     v_fecha_corte := NOW() - (p_dias_limite || ' days')::INTERVAL;
 
     RAISE NOTICE 'Iniciando proceso batch de seguridad...';
-    RAISE NOTICE 'Fecha de corte: %', v_fecha_corte;
+    RAISE NOTICE 'Fecha de corte establecida: %', v_fecha_corte;
 
     OPEN cur_usuarios_activos;
 
     LOOP
-        FETCH cur_usuarios_activos INTO v_id_usuario, v_id_auth, v_nombre_usuario, v_creado_en, v_ultima_sesion_cursor;
+        FETCH cur_usuarios_activos INTO v_id_usuario, v_nombre_usuario, v_creado_en, v_ultima_sesion_cursor;
         EXIT WHEN NOT FOUND;
 
         IF (v_ultima_sesion_cursor IS NOT NULL AND v_ultima_sesion_cursor < v_fecha_corte) OR
            (v_ultima_sesion_cursor IS NULL AND v_creado_en < v_fecha_corte) THEN
 
             UPDATE seguridad.usuario
-            SET id_estado = (SELECT id_estado FROM seguridad.estado WHERE nombre = 'INACTIVO' LIMIT 1),
+            SET id_estado = 2,
                 actualizado_en = NOW()
             WHERE id_usuario = v_id_usuario;
 
@@ -255,17 +246,20 @@ BEGIN
                 'BATCH_UPDATE',
                 'id_estado: 1 (ACTIVO)',
                 'id_estado: 2 (INACTIVO) - Por Inactividad',
-                'SYSTEM',
+                'LOCALHOST',
                 NOW()
             );
 
             v_contador_baja := v_contador_baja + 1;
+            
+            RAISE NOTICE 'Usuario desactivado: % (Último acceso: %)', v_nombre_usuario, COALESCE(v_ultima_sesion_cursor, v_creado_en);
         END IF;
     END LOOP;
 
     CLOSE cur_usuarios_activos;
 
-    RAISE NOTICE 'Proceso finalizado. Usuarios desactivados: %', v_contador_baja;
+    RAISE NOTICE 'Proceso finalizado con éxito.';
+    RAISE NOTICE 'Total de usuarios desactivados: %', v_contador_baja;
 END;
 $$;
 

@@ -86,7 +86,7 @@ export default function PaginaReasignacion() {
         const client = supabase as any
 
         // 1. Actualizar la tabla de asignaciones
-        // "Busca todo lo que sea de ORIGEN y pónselo a DESTINO"
+        // Reassign tasks from source to destination
         const { error } = await client
             .schema('programacion')
             .from('asignacion_recurso_ticket')

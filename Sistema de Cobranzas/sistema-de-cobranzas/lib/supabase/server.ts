@@ -2,9 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * Especially important if using Fluid compute: Don't put this client in a
- * global variable. Always create a new client within each function when using
- * it.
+ * Cliente de Supabase autenticado con cookies del usuario
+ * Usa las credenciales de sesión del usuario logueado
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -27,6 +26,28 @@ export async function createClient() {
             // This can be ignored if you have proxy refreshing
             // user sessions.
           }
+        },
+      },
+    },
+  );
+}
+
+/**
+ * Cliente administrativo de Supabase con SERVICE_ROLE_KEY
+ * USO: Solo en endpoints API que requieren acceso administrativo
+ * NO usar en componentes del cliente
+ */
+export async function createAdminClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return [];
+        },
+        setAll() {
+          // No-op for admin client
         },
       },
     },

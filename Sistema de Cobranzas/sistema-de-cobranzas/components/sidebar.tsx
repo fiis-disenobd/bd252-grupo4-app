@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const modules = [
-  { id: "security", label: "Módulo de Seguridad" },
+  { id: "seguridad", label: "Módulo de Seguridad" },
   { id: "programacion", label: "Módulo de Programación" },
   { id: "operations", label: "Módulo de Operaciones" },
   { id: "strategies", label: "Módulo de Estrategias" },

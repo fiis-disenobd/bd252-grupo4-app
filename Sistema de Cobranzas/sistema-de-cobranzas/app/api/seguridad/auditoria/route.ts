@@ -1,25 +1,22 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const sql = `
-      SELECT 
-        a.id_auditoria,
-        u.nombre_usuario,
-        a.tabla_afectada,
-        a.operacion,
-        a.valor_antiguo,
-        a.valor_nuevo,
-        a.ip,
-        a.fecha
-      FROM seguridad.auditoria a
-      LEFT JOIN seguridad.usuario u ON a.id_usuario = u.id_usuario
-      ORDER BY a.fecha DESC
-    `;
-    const res = await query(sql);
-    return NextResponse.json({ success: true, auditoria: res.rows });
-  } catch (e: any) {
-    return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc('obtener_auditoria');
+
+    if (error) throw error;
+
+    const auditoria = typeof data === 'string' ? JSON.parse(data) : (data || []);
+
+    return NextResponse.json({ success: true, auditoria });
+  } catch (err: any) {
+    console.error('GET auditoria error:', err);
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Error al obtener auditoría' },
+      { status: 500 }
+    );
   }
 }
