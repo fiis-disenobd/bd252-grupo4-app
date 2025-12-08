@@ -37,7 +37,6 @@ export default function PaginaReasignacion() {
     if (supabase) cargarRecursos()
   }, [])
 
-  // Cuando cambia el origen, actualizamos cuántos tickets tiene para mover
   useEffect(() => {
     if (origen) {
         const asesor = recursos.find(r => r.codigo_recurso === origen)
@@ -49,7 +48,6 @@ export default function PaginaReasignacion() {
     try {
       setLoading(true)
       const client = supabase as any
-      // Usamos la vista de carga que creamos antes para ver quién tiene tickets
       const { data, error } = await client
         .schema('programacion') 
         .from('vista_carga_asesores')
@@ -86,7 +84,6 @@ export default function PaginaReasignacion() {
         const client = supabase as any
 
         // 1. Actualizar la tabla de asignaciones
-        // "Busca todo lo que sea de ORIGEN y pónselo a DESTINO"
         const { error } = await client
             .schema('programacion')
             .from('asignacion_recurso_ticket')
@@ -97,7 +94,6 @@ export default function PaginaReasignacion() {
 
         setMensaje({ tipo: 'success', texto: `Se transfirieron correctamente los tickets.` })
         
-        // Recargar datos para actualizar contadores
         await cargarRecursos()
         setOrigen('')
         setDestino('')

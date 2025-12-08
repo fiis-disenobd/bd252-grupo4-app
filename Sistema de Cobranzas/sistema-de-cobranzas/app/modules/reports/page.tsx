@@ -8,17 +8,19 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
-  LineChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
-  BarChart,
   Bar,
   CartesianGrid,
   Legend,
   ComposedChart,
 } from 'recharts'
+
+/* ----------------------------------- */
+/* TIPOS DE DATOS PARA LAS VISTAS */
+/* ----------------------------------- */
 
 interface TicketProgramado {
   codigo_ticket: number
@@ -32,34 +34,81 @@ interface TicketProgramado {
   nombre_equipo: string | null
 }
 
+<<<<<<< HEAD
 /* Sample chart colors and data */
 const COLORS = ['#4f46e5', '#22c55e', '#f97316', '#ef4444']
+=======
+interface DeudaTotalEnProceso {
+  Periodo: string
+  'Deuda En Proceso': number
+  'Monto Maximo Deuda': number
+}
+>>>>>>> 86b5cb66f52969400f0f23692110baad9e72092e
 
-// Deuda total por cartera
-const deudaPorCarteraData = [
-  { name: 'Temprana', value: 420_000 },
-  { name: 'Normal', value: 680_000 },
-  { name: 'Tardía', value: 310_000 },
-]
+interface DeudaPorEstado {
+  Estado: string
+  Deuda: number
+}
 
-// Cobertura mensual
-const coberturaMensualData = [
-  { mes: 'Ene', cobertura: 65, meta: 75 },
-  { mes: 'Feb', cobertura: 72, meta: 78 },
-  { mes: 'Mar', cobertura: 78, meta: 80 },
-  { mes: 'Abr', cobertura: 82, meta: 82 },
-  { mes: 'May', cobertura: 88, meta: 85 },
-  { mes: 'Jun', cobertura: 90, meta: 88 },
-]
+interface DeudaPorCartera {
+  Cartera: string
+  'Deuda En Proceso': number
+}
 
+<<<<<<< HEAD
 // Tickets pendientes por estado / prioridad
 const pendientesPorEstadoData = [
   { estado: 'Pendiente', cantidad: 120, meta: 100 },
   { estado: 'En Ejecución', cantidad: 80, meta: 90 },
   { estado: 'Finalizado', cantidad: 300, meta: 280 },
 ]
+=======
+interface DeudaPorProducto {
+  Categoria: string
+  Producto: string
+  'Deuda En Proceso': number
+}
+
+interface DeudaAsignadaPorEquipo {
+  Equipo: string
+  'Deuda Asignada': number
+}
+
+interface MoraPromedioPorEquipo {
+  Equipo: string
+  'Dias de Mora Promedio': number
+}
+
+/* ----------------------------------- */
+/* CONSTANTES Y CONFIGURACIÓN */
+/* ----------------------------------- */
+
+const PIE_COLORS = ['#3b82f6', '#f97316', '#22c55e']
+
+function getCarteraPieColor(carteraOEstado: string) {
+  switch (carteraOEstado) {
+    case 'En Ejecucion':
+    case 'Intermedia':
+      return PIE_COLORS[0]
+    case 'Pendiente':
+    case 'Tardia':
+      return PIE_COLORS[1]
+    case 'Finalizado':
+    case 'Temprana':
+      return PIE_COLORS[2]
+    default:
+      return '#9ca3af'
+  }
+}
+
+/* ----------------------------------- */
+/* COMPONENTE PRINCIPAL */
+/* ----------------------------------- */
+>>>>>>> 86b5cb66f52969400f0f23692110baad9e72092e
 
 export default function ModuloReportes() {
+  const supabase = useMemo(() => createClient(), [])
+
   const [tickets, setTickets] = useState<TicketProgramado[]>([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -69,12 +118,12 @@ export default function ModuloReportes() {
   const ITEMS_POR_PAGINA = 20
   const [mensaje, setMensaje] = useState<{ tipo: 'error' | 'success'; texto: string } | null>(null)
 
-  // 🔹 ESTOS hooks debían estar DENTRO del componente
-  const [deudaEnProceso, setDeudaEnProceso] = useState<number | null>(null)
-  const [montoMaxDeuda, setMontoMaxDeuda] = useState<number | null>(null)
-  const [periodoDeuda, setPeriodoDeuda] = useState<string | null>(null)
-
-  const supabase = createClient()
+  const [totalDeudaData, setTotalDeudaData] = useState<DeudaTotalEnProceso | null>(null)
+  const [deudaPorEstadoData, setDeudaPorEstadoData] = useState<DeudaPorEstado[]>([])
+  const [deudaPorCarteraProcesoData, setDeudaPorCarteraProcesoData] = useState<DeudaPorCartera[]>([])
+  const [deudaPorProductoData, setDeudaPorProductoData] = useState<DeudaPorProducto[]>([])
+  const [deudaAsignadaEquipoData, setDeudaAsignadaEquipoData] = useState<DeudaAsignadaPorEquipo[]>([])
+  const [moraPromedioEquipoData, setMoraPromedioEquipoData] = useState<MoraPromedioPorEquipo[]>([])
 
   useEffect(() => {
     if (!supabase) {
@@ -83,22 +132,123 @@ export default function ModuloReportes() {
     }
 
     cargarProgramacion()
-    cargarTotalDeudaEnProceso()
+    cargarDatosReportes()
   }, [])
 
-  // --- CÁLCULO DE KPIs ---
+  /* ----------------------------------- */
+  /* FUNCIONES DE CARGA DE DATOS */
+  /* ----------------------------------- */
+
+  async function cargarProgramacion() {
+    try {
+      const { data, error } = await supabase.rpc('get_programacion')
+
+      if (error) throw error
+      setTickets((data as any[]) || [])
+    } catch (err: any) {
+      console.error(err)
+      setMensaje({ tipo: 'error', texto: 'Error cargando tickets: ' + err.message })
+    }
+  }
+
+  async function cargarTotalDeudaEnProceso() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_total_deuda_en_proceso')
+      .select('Periodo, "Deuda En Proceso", "Monto Maximo Deuda"')
+      .maybeSingle()
+
+    if (error) throw error
+    setTotalDeudaData(data as DeudaTotalEnProceso)
+  }
+
+  async function cargarEstadoDeudaTotal() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_estado_de_la_deuda_total')
+      .select('Estado, Deuda')
+      .order('Deuda', { ascending: false })
+
+    if (error) throw error
+    setDeudaPorEstadoData(data as DeudaPorEstado[])
+  }
+
+  async function cargarDeudaEnProcesoPorCartera() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_deuda_en_proceso_por_cartera')
+      .select('Cartera, "Deuda En Proceso"')
+      .order('Deuda En Proceso', { ascending: false })
+
+    if (error) throw error
+    setDeudaPorCarteraProcesoData(data as DeudaPorCartera[])
+  }
+
+  async function cargarDeudaEnProcesoPorProducto() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_deuda_en_proceso_por_producto')
+      .select('Categoria, Producto, "Deuda En Proceso"')
+      .order('Deuda En Proceso', { ascending: false })
+      .limit(5)
+
+    if (error) throw error
+    setDeudaPorProductoData(data as DeudaPorProducto[])
+  }
+
+  async function cargarDeudaAsignadaPorEquipo() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_deuda_asignada_por_equipo')
+      .select('Equipo, "Deuda Asignada"')
+      .order('Deuda Asignada', { ascending: false })
+
+    if (error) throw error
+    setDeudaAsignadaEquipoData(data as DeudaAsignadaPorEquipo[])
+  }
+
+  async function cargarMoraPromedioDeudaAsignadaPorEquipo() {
+    const { data, error } = await supabase
+      .schema('modulo_reportes')
+      .from('vw_mora_promedio_de_la_deuda_asignada_por_equipo')
+      .select('Equipo, "Dias de Mora Promedio"')
+      .order('Dias de Mora Promedio', { ascending: false })
+
+    if (error) throw error
+    setMoraPromedioEquipoData(data as MoraPromedioPorEquipo[])
+  }
+
+  async function cargarDatosReportes() {
+    setLoading(true)
+    try {
+      await Promise.all([
+        cargarTotalDeudaEnProceso(),
+        cargarEstadoDeudaTotal(),
+        cargarDeudaEnProcesoPorCartera(),
+        cargarDeudaEnProcesoPorProducto(),
+        cargarDeudaAsignadaPorEquipo(),
+        cargarMoraPromedioDeudaAsignadaPorEquipo(),
+      ])
+    } catch (err: any) {
+      console.error('Error cargando reportes:', err)
+      setMensaje(prev => prev ?? {
+        tipo: 'error',
+        texto: 'Error general cargando reportes: ' + err.message,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /* ----------------------------------- */
+  /* DATOS CALCULADOS */
+  /* ----------------------------------- */
+
   const kpis = useMemo(() => {
-    const totalTickets = tickets.length
-    const totalDeuda = tickets.reduce((acc, t) => acc + t.monto_deuda, 0)
-    const asignados = tickets.filter(t => t.recurso_asignado).length
-    const sinAsignar = totalTickets - asignados
-    const criticosSinAsignar = tickets.filter(t => t.cartera === 'Tardia' && !t.recurso_asignado).length
-    const cobertura = totalTickets > 0 ? Math.round((asignados / totalTickets) * 100) : 0
+    const totalDeuda = deudaPorEstadoData.reduce((acc, t) => acc + t.Deuda, 0)
+    return { totalDeuda }
+  }, [deudaPorEstadoData])
 
-    return { totalTickets, totalDeuda, sinAsignar, criticosSinAsignar, cobertura }
-  }, [tickets])
-
-  // Lógica de Filtros
   const ticketsFiltrados = useMemo(() => {
     return tickets.filter(t => {
       const busquedaLower = busqueda.toLowerCase()
@@ -117,7 +267,6 @@ export default function ModuloReportes() {
     })
   }, [tickets, busqueda, filtroEstado, filtroCartera])
 
-  // Lógica de Paginación
   const { ticketsPaginados, totalPaginas } = useMemo(() => {
     const inicio = (paginaActual - 1) * ITEMS_POR_PAGINA
     const fin = inicio + ITEMS_POR_PAGINA
@@ -127,56 +276,50 @@ export default function ModuloReportes() {
     }
   }, [ticketsFiltrados, paginaActual])
 
-  // Resetear página al filtrar
-  useEffect(() => {
-    setPaginaActual(1)
-  }, [busqueda, filtroEstado, filtroCartera])
+  const deudaActualProceso = totalDeudaData ? Number(totalDeudaData['Deuda En Proceso']) : 0
+  const deudaMaxReferencia = totalDeudaData ? Number(totalDeudaData['Monto Maximo Deuda']) : 5_000_000
+  const porcentajeDeuda = (deudaActualProceso / deudaMaxReferencia) * 100
 
-  async function cargarProgramacion() {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase.rpc('get_programacion')
-
-      if (error) throw error
-      setTickets((data as any[]) || [])
-    } catch (err: any) {
-      console.error(err)
-      setMensaje({ tipo: 'error', texto: 'Error cargando datos: ' + err.message })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function cargarTotalDeudaEnProceso() {
-    try {
-      const { data, error } = await supabase
-        .schema('modulo_reportes')                   // 👈 schema explícito
-        .from('vw_total_deuda_en_proceso')
-        .select('Periodo, "Deuda En Proceso", "Monto Maximo Deuda"')
-        .single()
-
-      if (error) throw error
-      if (data) {
-        setPeriodoDeuda(data.Periodo)
-        setDeudaEnProceso(Number(data['Deuda En Proceso']))
-        setMontoMaxDeuda(Number(data['Monto Maximo Deuda']))
-      }
-    } catch (err: any) {
-      console.error(err)
-      setMensaje(prev => prev ?? {
-        tipo: 'error',
-        texto: 'Error cargando total de deuda en proceso: ' + err.message,
-      })
-    }
-  }
-
-  const deudaActualProceso = deudaEnProceso ?? 0
-  const deudaMaxReferencia = montoMaxDeuda ?? 5_000_000
-
-  const deudaGaugeData = [
+  const deudaGaugeData = useMemo(() => ([
     { name: 'En proceso', value: deudaActualProceso },
     { name: 'Disponible', value: Math.max(deudaMaxReferencia - deudaActualProceso, 0) },
-  ]
+  ]), [deudaActualProceso, deudaMaxReferencia])
+
+  const estadoDeudaPieData = useMemo(() => (
+    deudaPorEstadoData.map(d => ({
+      name: d.Estado,
+      value: d.Deuda,
+    }))
+  ), [deudaPorEstadoData])
+
+  const carteraProcesoPieData = useMemo(() => (
+    deudaPorCarteraProcesoData.map(d => ({
+      name: d.Cartera,
+      value: d['Deuda En Proceso'],
+    }))
+  ), [deudaPorCarteraProcesoData])
+
+  const productoBarLineData = useMemo(() => {
+    return deudaPorProductoData.map(d => ({
+      producto: d.Producto,
+      deuda: d['Deuda En Proceso'],
+    }))
+    .sort((a, b) => b.deuda - a.deuda)
+  }, [deudaPorProductoData])
+
+  const deudaEquipoBarData = useMemo(() => {
+    return deudaAsignadaEquipoData.map(d => ({
+      equipo: d.Equipo.replace('Equipo ', ''),
+      'Deuda Asignada': d['Deuda Asignada'],
+    }))
+  }, [deudaAsignadaEquipoData])
+
+  const moraPromedioBarData = useMemo(() => {
+    return moraPromedioEquipoData.map(d => ({
+      equipo: d.Equipo.replace('Equipo ', ''),
+      'Días de Mora Promedio': d['Dias de Mora Promedio'],
+    }))
+  }, [moraPromedioEquipoData])
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 relative text-slate-900 pb-24">
@@ -184,12 +327,15 @@ export default function ModuloReportes() {
       {/* TÍTULO Y ACCIONES */}
       <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Metas y reportes</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Módulo de Reportes</h1>
           <p className="text-gray-500 text-sm mt-1">Dashboard de metas y reportes</p>
         </div>
         <div className="flex gap-3">
           <button
-            onClick={cargarProgramacion}
+            onClick={() => {
+              cargarProgramacion()
+              cargarDatosReportes()
+            }}
             className="px-4 py-2 bg-white border border-gray-300 text-slate-700 rounded-md hover:bg-gray-50 shadow-sm transition-all text-sm font-medium"
           >
             ↻ Actualizar
@@ -197,38 +343,25 @@ export default function ModuloReportes() {
         </div>
       </div>
 
-      {/* --- SECCIÓN DE KPIs --- */}
+      {/* --- SECCIÓN DE GRÁFICOS SUPERIORES --- */}
       <div className="max-w-7xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-3 gap-3">
 
-        {/* Card: Total deuda en proceso (Gauge con data real) */}
+        {/* Card 1: Total deuda en proceso (Gauge) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Total deuda en proceso
           </p>
 
-          <div className="flex items-end gap-2 mt-1">
-            <p className="text-3xl font-bold text-slate-900">
-              {(deudaActualProceso / 1_000_000).toFixed(2)} mill.
-            </p>
-            <span className="text-xs text-gray-500 mb-1">
-              de S/ {(deudaMaxReferencia / 1_000_000).toFixed(0)} mill.
-            </span>
-          </div>
-
-          <p className="text-[11px] text-gray-500">
-            {periodoDeuda ? `Periodo: ${periodoDeuda}` : 'Periodo actual de cobranza'}
-          </p>
-
           <div className="mt-4 h-32 relative">
-            <ResponsiveContainer width="100%" height="110%">
+            <ResponsiveContainer width="100%" height="170%">
               <PieChart>
                 <Pie
                   data={deudaGaugeData}
                   dataKey="value"
                   startAngle={180}
                   endAngle={0}
-                  innerRadius={50}
-                  outerRadius={70}
+                  innerRadius={60}
+                  outerRadius={80}
                   stroke="none"
                 >
                   <Cell fill="#3b82f6" />
@@ -237,25 +370,25 @@ export default function ModuloReportes() {
               </PieChart>
             </ResponsiveContainer>
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-xl font-semibold text-slate-900">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-10">
+              <p className="text-lg font-bold text-slate-900">
                 {(deudaActualProceso / 1_000_000).toFixed(2)} mill.
               </p>
               <p className="text-[10px] text-gray-500">
-                Deuda en proceso
+                ({porcentajeDeuda.toFixed(2)}%)
               </p>
             </div>
 
-            <span className="absolute left-0 bottom-0 text-[10px] text-gray-500">
+            <span className="absolute left-10 bottom-0 text-[10px] text-gray-500">
               0,00 mill.
             </span>
-            <span className="absolute right-0 bottom-0 text-[10px] text-gray-500">
+            <span className="absolute right-10 bottom-0 text-[10px] text-gray-500">
               {(deudaMaxReferencia / 1_000_000).toFixed(0)} mill.
             </span>
           </div>
         </div>
 
-        {/* Card: Estado de la deuda total */}
+        {/* Card 2: Estado de la deuda total (PieChart) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Estado de la deuda total
@@ -264,182 +397,168 @@ export default function ModuloReportes() {
             S/ {kpis.totalDeuda.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
           </p>
           <p className="text-[11px] text-gray-500 mt-1">
-            Distribución por tipo de cartera (data de prueba)
+            Distribución por estado
           </p>
           <div className="mt-3 h-32">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={deudaPorCarteraData}
+                  data={estadoDeudaPieData}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={24}
                   outerRadius={45}
                   paddingAngle={2}
                 >
-                  {deudaPorCarteraData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {estadoDeudaPieData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={getCarteraPieColor(entry.name)}
+                    />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => `S/ ${Number(value).toLocaleString('es-PE')}`} />
+                <Tooltip
+                  formatter={(value: any, name, entry) => [
+                    `S/ ${Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 })} (${((value / kpis.totalDeuda) * 100).toFixed(2)}%)`,
+                    entry.name,
+                  ]}
+                />
                 <Legend
                   verticalAlign="bottom"
-                  align="center"
+                  align="left"
                   iconSize={8}
-                  wrapperStyle={{ fontSize: 10 }}
+                  layout="vertical"
+                  wrapperStyle={{ fontSize: 10, paddingLeft: 10 }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Card: Deuda en proceso por cartera */}
+        {/* Card 3: Deuda en proceso por cartera (PieChart) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Deuda en proceso por cartera
           </p>
           <p className="text-2xl font-bold text-slate-900 mt-1">
-            S/ {kpis.totalDeuda.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
+            S/ {carteraProcesoPieData.reduce((acc, d) => acc + d.value, 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}
           </p>
           <p className="text-[11px] text-gray-500 mt-1">
-            Distribución por tipo de cartera (data de prueba)
+            Distribución por tipo de cartera
           </p>
           <div className="mt-3 h-32">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={deudaPorCarteraData}
+                  data={carteraProcesoPieData}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={24}
                   outerRadius={45}
                   paddingAngle={2}
                 >
-                  {deudaPorCarteraData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {carteraProcesoPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getCarteraPieColor(entry.name)} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => `S/ ${Number(value).toLocaleString('es-PE')}`} />
+                <Tooltip
+                  formatter={(value: any, name, entry) => {
+                    const total = carteraProcesoPieData.reduce((acc, d) => acc + d.value, 0);
+                    return [
+                      `S/ ${Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 })} (${((value / total) * 100).toFixed(2)}%)`,
+                      entry.name,
+                    ];
+                  }}
+                />
                 <Legend
                   verticalAlign="bottom"
-                  align="center"
+                  align="left"
                   iconSize={8}
-                  wrapperStyle={{ fontSize: 10 }}
+                  layout="vertical"
+                  wrapperStyle={{ fontSize: 10, paddingLeft: 10 }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
 
-        {/* Card: Deuda en proceso por producto */}
+      {/* --- SECCIÓN DE GRÁFICOS INFERIORES --- */}
+      <div className="max-w-7xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Card 4: Deuda en proceso por producto (Bar/Line Chart) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Deuda en proceso por producto
           </p>
-          <p className="text-3xl font-bold text-slate-900 mt-1">{kpis.sinAsignar}</p>
-          <p className="text-xs text-gray-500">Requieren atención inmediata</p>
-          <div className="mt-3 h-32">
+          <div className="mt-3 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
-                data={pendientesPorEstadoData}
+                data={productoBarLineData}
                 layout="vertical"
-                margin={{ left: 20, right: 10 }}
+                margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" fontSize={10} />
-                <YAxis dataKey="estado" type="category" fontSize={10} width={80} />
-                <Tooltip />
-                <Legend />
-
-                <Bar
-                  dataKey="cantidad"
-                  barSize={18}
-                  fill="#f97316"
-                  radius={[0, 6, 6, 0]}
+                <XAxis
+                  type="number"
+                  fontSize={10}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
                 />
-
-                <Line
-                  type="monotone"
-                  dataKey="meta"
-                  stroke="#4f46e5"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                <YAxis dataKey="producto" type="category" fontSize={10} width={100} />
+                <Tooltip formatter={(value: any) => `S/ ${Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 })}`} />
+                <Bar
+                  dataKey="deuda"
+                  name="Deuda"
+                  barSize={18}
+                  fill="#3b82f6"
+                  radius={[0, 6, 6, 0]}
                 />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Card: Deuda asignada por equipo */}
+        {/* Card 5: Deuda asignada por equipo (Bar Chart) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             Deuda asignada por equipo
           </p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="text-3xl font-bold text-slate-900">{kpis.cobertura}%</p>
-            <span className="text-xs text-gray-500 mb-1">de tickets asignados</span>
-          </div>
-          <p className="text-[11px] text-gray-500">
-            Evolución mensual de la cobertura (data de prueba)
-          </p>
-          <div className="mt-3 h-32">
+          <div className="mt-3 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={coberturaMensualData}>
+              <ComposedChart data={deudaEquipoBarData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" fontSize={10} />
-                <YAxis fontSize={10} domain={[0, 100]} />
-                <Tooltip formatter={(v: any) => `${v}%`} />
-                <Legend />
+                <XAxis dataKey="equipo" fontSize={10} angle={-25} textAnchor="end" height={40} />
+                <YAxis fontSize={10} tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+                <Tooltip formatter={(value: any) => `S/ ${Number(value).toLocaleString('es-PE', { maximumFractionDigits: 0 })}`} />
+                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 30}} />
                 <Bar
-                  dataKey="cobertura"
+                  dataKey="Deuda Asignada"
                   barSize={18}
                   radius={[4, 4, 0, 0]}
-                  fill="#4f46e5"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="meta"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                  fill="#3b82f6"
                 />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Card: Deuda promedio de la deuda asignada por equipo */}
+        {/* Card 6: Mora promedio de la deuda asignada por equipo (Bar Chart) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-            Deuda promedio de la deuda asignada por equipo
+            Mora promedio de la deuda asignada por equipo
           </p>
-          <div className="flex items-end gap-2 mt-1">
-            <p className="text-3xl font-bold text-slate-900">{kpis.cobertura}%</p>
-            <span className="text-xs text-gray-500 mb-1">de tickets asignados</span>
-          </div>
-          <p className="text-[11px] text-gray-500">
-            Evolución mensual de la cobertura (data de prueba)
-          </p>
-          <div className="mt-3 h-32">
+          <div className="mt-3 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={coberturaMensualData}>
+              <ComposedChart data={moraPromedioBarData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" fontSize={10} />
-                <YAxis fontSize={10} domain={[0, 100]} />
-                <Tooltip formatter={(v: any) => `${v}%`} />
-                <Legend />
+                <XAxis dataKey="equipo" fontSize={10} angle={-25} textAnchor="end" height={40} />
+                <YAxis fontSize={10} />
+                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)} días`} />
+                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 30 }} />
                 <Bar
-                  dataKey="cobertura"
+                  dataKey="Días de Mora Promedio"
                   barSize={18}
                   radius={[4, 4, 0, 0]}
-                  fill="#4f46e5"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="meta"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                  fill="#3b82f6"
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -482,6 +601,7 @@ export default function ModuloReportes() {
           >
             <option value="Todas">Todas</option>
             <option value="Temprana">Temprana</option>
+            <option value="Intermedia">Intermedia</option>
             <option value="Tardia">Tardía</option>
           </select>
         </div>
@@ -520,7 +640,7 @@ export default function ModuloReportes() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-slate-900">{t.cliente}</div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full 
+                    <span className={`text-xs px-2 py-0.5 rounded-full
                         ${t.cartera === 'Tardia' ? 'bg-red-100 text-red-800' :
                         t.cartera === 'Temprana' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
                       {t.cartera}
@@ -530,7 +650,7 @@ export default function ModuloReportes() {
                     <span className="text-slate-900 font-semibold">S/ {t.monto_deuda}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full font-semibold border 
+                    <span className={`px-2 py-1 text-xs rounded-full font-semibold border
                         ${t.estado_ticket === 'Pendiente' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
                         t.estado_ticket === 'En Ejecucion' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
                       {t.estado_ticket}
@@ -585,12 +705,10 @@ export default function ModuloReportes() {
 
               {/* Números de Página */}
               {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                // Lógica para mostrar ventana de páginas cercana a la actual
                 let pageNum = paginaActual - 2 + i
                 if (paginaActual < 3) pageNum = i + 1
                 if (paginaActual > totalPaginas - 2) pageNum = totalPaginas - 4 + i
 
-                // Asegurar límites
                 if (pageNum < 1) pageNum = i + 1
                 if (pageNum > totalPaginas) return null
 
