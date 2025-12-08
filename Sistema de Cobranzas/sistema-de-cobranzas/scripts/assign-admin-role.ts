@@ -48,6 +48,8 @@ async function assignAdminRoleToAllUsers() {
 
     for (const authUser of users) {
       try {
+        if (!authUser.email) continue; // Skip users without email
+        
         // Verificar si el usuario ya existe en seguridad.usuario
         const { data: existingUser, error: checkError } = await supabase
           .schema('seguridad')
